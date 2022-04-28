@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 
 // Doubly linked list element
-typedef struct {
-  void *prev;
-  void *next;
+typedef struct Element {
+  struct Element *prev;
+  struct Element *next;
   void *data; 
 } Element;
 
@@ -32,15 +31,48 @@ Element *insert(Element *head, void *data) {
 
 // Find. Walk the list until you find a matching string
 // Return true if found, false otherwise
-bool find(Element *head, const char *target) {
+Element* find(Element *head, const char *target) {
     Element *p = head;
     while(p != NULL) {
         if(strcmp(p->data, target) == 0) {
-            return true;
+            return p;
         }
         p = p->next;
     }
-    return false;
+    return NULL;
+}
+
+// Delete the element and return the new head
+Element* delete(Element *head, const char *target) {
+    Element *p = find(head, target);
+    if(p == NULL) {
+        return head;
+    } else {
+       // Fix prev element 
+       if(p->prev) {
+           p->prev->next = p->next;
+       }
+       // Fix next element
+       if(p->next) {
+           p->next->prev = p->prev;
+       }
+       Element *next = p->next;
+       free(p);
+       if(p == head) {
+           return next;
+       } else {
+           return head;
+       }
+    }
+}
+
+void print_list(Element *head) {
+    Element *p = head;
+    while(p != NULL) {
+        printf("%s ", p->data);
+        p = p->next;
+    }
+    printf("\n");
 }
 
 int main(void) {
@@ -55,7 +87,25 @@ int main(void) {
     printf("Found you?? %c\n", find(head, "you?") ? 'Y' : 'N');
 
     head = insert(head, "you?");
-
     printf("Found you?? %c\n", find(head, "you?") ? 'Y' : 'N');
+
+    print_list(head);
+
+    // delete first 
+    head = delete(head, "Hello");
+    printf("Found Hello? %c\n", find(head, "Hello") ? 'Y' : 'N');
+
+    print_list(head);
+    // delete last
+    head = delete(head, "you?");
+    printf("Found you?? %c\n", find(head, "you?") ? 'Y' : 'N');
+
+    print_list(head);
+    // delete middle
+    head = delete(head, "are");
+    printf("Found are? %c\n", find(head, "are") ? 'Y' : 'N');
+
+    print_list(head);
+
     return 0;
 }

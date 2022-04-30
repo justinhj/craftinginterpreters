@@ -7,11 +7,16 @@
 WIP
 
 2. Get a “Hello, world!” program written and running in Java. Set up whatever Makefiles or IDE projects you need to get it working. If you have a debugger, get comfortable with it and step through your program as it runs.
+
 3. Do the same thing for C. To get some practice with pointers, define a doubly-linked list of heap-allocated strings. Write functions to insert, find, and delete items from it. Test them.
+
+See `./c-double-linked-list`
 
 ## Build
 
-Uses cmake to build, and since I'm using [clangd]() for lsp support I need to run this to make a json file for it to use when the project changes.
+Uses make to build, and since I'm using [clangd]() for lsp support I need to run this to make a json file for it to use when the project changes.
+
+`make` and `./main`
 
 ```
 cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1
@@ -40,8 +45,4 @@ For compilers to find llvm you may need to set:
 
 Uses [CuTest](https://github.com/asimjalis/cutest)
 
-
-
-
-
-
+`make` and `./tests`

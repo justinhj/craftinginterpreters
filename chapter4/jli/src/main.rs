@@ -1,10 +1,13 @@
 // Scanner for lox
 // Tools to turn a string of lox source into tokens
 
+// TODO make into a library module
+
 fn main() {
     println!("Hello, world!");
 }
 
+#[derive(Debug,PartialEq)]
 enum Token {
     // literals
     IDENTIFIER(String),
@@ -17,10 +20,42 @@ enum Token {
     EOF,
 }
 
+// Design decisions. Should lexeme exist for things that are constant like 
+// operators, keywords? It can be empty string but maybe it should be Option
+#[derive(Debug,PartialEq)]
 struct TokenInstance {
     token_type: Token,
     lexeme: String,
     line: usize
+}
+
+enum ParseError {
+    UnexpectedChar(char),
+}
+
+struct ParserState<'a> {
+    line: usize,
+    position: usize,
+    tokens: Vec<TokenInstance>,
+    source: &'a str,
+}
+
+fn begin_parse(source: &str) -> ParserState {
+    ParserState {
+        line: 0,
+        position: 0,
+        tokens: vec!(),
+        source: source,
+    }
+}
+
+fn is_parse_done(state: &ParserState) -> bool {
+    state.position == state.source.len()
+}
+
+fn parse_next(state: &mut ParserState) -> Result<(), ParseError> {
+
+    Ok(())
 }
 
 fn scan(input: &str) -> Vec<TokenInstance> {
@@ -31,20 +66,21 @@ fn scan(input: &str) -> Vec<TokenInstance> {
 
 mod tests {
 
+    use super::*;
+
     #[test]
     fn scan_test() {
         let input = "a=1+2;".to_string();
 
-// IDENTIFIER a null
-// EQUAL = null
-// NUMBER 1 1.0
-// PLUS + null
-// NUMBER 2 2.0
-// SEMICOLON ; null
-// EOF  null
+        let expected = vec!(
+                TokenInstance{token_type: Token::IDENTIFIER("a".to_string()), lexeme: "a".to_string(), line: 0},
+                TokenInstance{token_type: Token::EQUAL, lexeme: "=".to_string(), line: 0},
+                TokenInstance{token_type: Token::NUMBER(1.0), lexeme: "1".to_string(), line: 0},
+                TokenInstance{token_type: Token::PLUS, lexeme: "+".to_string(), line: 0},
+                TokenInstance{token_type: Token::NUMBER(2.0), lexeme: "2".to_string(), line: 0},
+                TokenInstance{token_type: Token::EOF, lexeme: "".to_string(), line: 0},
+                );
 
-        assert_eq!("something", "something");
+        assert_eq!(scan(&input), expected);
     }
-
-
 }

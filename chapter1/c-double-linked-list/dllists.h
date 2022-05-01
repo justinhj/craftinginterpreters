@@ -8,5 +8,5 @@ typedef struct Element {
 // Functions
 Element *insert(Element *head, void *data);
 Element *find(Element *head, const char *target);
-Element *delete(Element *head, const char *target);
-void print_list(Element *head);
+Element *remove_if_found(Element *head, const char *target);
+char *format_to_string(Element *head);

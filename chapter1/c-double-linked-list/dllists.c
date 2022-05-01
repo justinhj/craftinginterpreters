@@ -3,7 +3,7 @@
 #include <string.h>
 #include "dllists.h"
 
-// Insert Find Delete
+// Insert Find Remove
 
 // Insert the data at the head of the list
 // A pointer to the head of the list is returned
@@ -36,8 +36,8 @@ Element* find(Element *head, const char *target) {
     return NULL;
 }
 
-// Delete the element and return the new head
-Element* delete(Element *head, const char *target) {
+// Remove the element and return the new head
+Element* remove_if_found(Element *head, const char *target) {
     Element *p = find(head, target);
     if(p == NULL) {
         return head;
@@ -60,11 +60,18 @@ Element* delete(Element *head, const char *target) {
     }
 }
 
-void print_list(Element *head) {
+// This could be nicer but to be safe let's just allow 2kb of string
+char *format_to_string(Element *head) {
+    size_t len = 2 * 2024;
+    char *output = malloc(len);
     Element *p = head;
+    size_t space_left = len;
+    char *output_location = output;
     while(p != NULL) {
-        printf("%s ", p->data);
+        size_t used = snprintf(output_location, space_left, "%s%s", (char *) p->data, p->next ? ", " : "");
+        space_left = space_left - used;
+        output_location += used;
         p = p->next;
     }
-    printf("\n");
+    return output;
 }

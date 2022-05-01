@@ -1,28 +1,56 @@
 #include "CuTest.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
 #include "dllists.h"
 
-void TestStrToUpper(CuTest *tc) {
+// Finding things at the beginning, end and middle of a list
+void TestInsertFind(CuTest *tc) {
     Element *head = NULL;  
-    head = insert(head, "you");
-    head = insert(head, "are");
-    head = insert(head, "How");
-    head = insert(head, "World");
-    head = insert(head, "Hello");
+    head = insert(head, "Planet");
+    head = insert(head, "Earth");
+    head = insert(head, "Mars");
+    head = insert(head, "Moon");
 
-    Element *actual = find(head, "World");
-    CuAssertPtrNotNull(tc, actual);
+    Element *a1 = find(head, "Planet");
+    CuAssertPtrNotNull(tc, a1);
 
-    Element *actual2 = find(head, "Moon");
-    CuAssertPtrEquals(tc, NULL, actual2);
+    Element *a2 = find(head, "Earth");
+    CuAssertPtrNotNull(tc, a2);
+
+    Element *a3 = find(head, "Moon");
+    CuAssertPtrNotNull(tc, a3);
+
+    Element *no = find(head, "Jupiter");
+    CuAssertPtrEquals(tc, NULL, no);
+}
+
+// Empty list tests
+void TestFindEmpty(CuTest *tc) {
+    Element *head = NULL;  
+    Element *no = find(head, "Jupiter");
+    CuAssertPtrEquals(tc, NULL, no);
+}
+
+// Test print list
+void TestPrintList(CuTest *tc) {
+    Element *head = NULL;  
+    head = insert(head, "Vietnam");
+    head = insert(head, "Morning");
+    head = insert(head, "Good");
+
+    char *actual = format_to_string(head);
+    CuAssertStrEquals(tc, "Good, Morning, Vietnam", actual);
+
+    free(actual);
 }
 
 CuSuite* DLListSuite() {
     CuSuite* suite = CuSuiteNew();
-    SUITE_ADD_TEST(suite, TestStrToUpper);
+    SUITE_ADD_TEST(suite, TestInsertFind);
+    SUITE_ADD_TEST(suite, TestFindEmpty);
+    SUITE_ADD_TEST(suite, TestPrintList);
     return suite;
 }
 

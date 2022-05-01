@@ -1,7 +1,7 @@
 all: main tests
 
 CC = clang
-override CFLAGS += -g -Wno-everything -pthread -lm -O0
+override CFLAGS += -Wno-everything -lm -O0
 
 TEST_SRCS = CuTest.c tests.c dllists.c
 SRCS = main.c dllists.c
@@ -29,3 +29,6 @@ main: $(OBJS)
 clean:
 	rm -f $(TEST_OBJS) $(TEST_DEPS) main
 	rm -f $(OBJS) $(DEPS) main
+
+test: 
+	./tests

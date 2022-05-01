@@ -4,8 +4,20 @@
 
 #include "dllists.h"
 
+void print_list(Element *head) {
+    char *str = format_to_string(head);
+    printf("%s\n", str);
+    free(str);
+}
+
 int main(void) {
-    printf("yah\n");
+    Element *head = NULL;  
+    head = insert(head, "Vietnam");
+    head = insert(head, ",");
+    head = insert(head, "Morning");
+    head = insert(head, "Good");
+
+    print_list(head);
 }
 
 void tests() {
@@ -24,21 +36,19 @@ void tests() {
 
     print_list(head);
 
-    // delete first 
-    head = delete(head, "Hello");
+    // remove_if_found first 
+    head = remove_if_found(head, "Hello");
     printf("Found Hello? %c\n", find(head, "Hello") ? 'Y' : 'N');
 
     print_list(head);
-    // delete last
-    head = delete(head, "you?");
+    // remove_if_found last
+    head = remove_if_found(head, "you?");
     printf("Found you?? %c\n", find(head, "you?") ? 'Y' : 'N');
 
     print_list(head);
-    // delete middle
-    head = delete(head, "are");
+    // remove_if_found middle
+    head = remove_if_found(head, "are");
     printf("Found are? %c\n", find(head, "are") ? 'Y' : 'N');
 
     print_list(head);
-
-    return 0;
 }

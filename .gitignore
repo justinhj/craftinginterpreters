@@ -2,3 +2,5 @@ main
 tests
 *.o
 *.d
+Cargo.lock
+target/

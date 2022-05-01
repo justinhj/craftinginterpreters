@@ -12,10 +12,9 @@ void print_list(Element *head) {
 
 int main(void) {
     Element *head = NULL;  
-    head = insert(head, "Vietnam");
-    head = insert(head, ",");
-    head = insert(head, "Morning");
-    head = insert(head, "Good");
+    head = insert(head, "c");
+    head = insert(head, "b");
+    head = insert(head, "a");
 
     print_list(head);
 }

@@ -46,11 +46,61 @@ void TestPrintList(CuTest *tc) {
     free(actual);
 }
 
+// Test list creation and deletion
+void TestCreateDelete(CuTest *tc) {
+    Element *head = NULL;  
+
+    char *a1 = format_to_string(head);
+    CuAssertStrEquals(tc, "", a1);
+    free(a1);
+
+    head = insert(head, "a");
+
+    char *a2 = format_to_string(head);
+    CuAssertStrEquals(tc, "a", a2);
+    free(a2);
+
+    // Delete only element
+    head = remove_if_found(head, "a");
+
+    char *a3 = format_to_string(head);
+    CuAssertStrEquals(tc, "", a3);
+    free(a3);
+
+    // Remove middle element
+    head = insert(head, "a");
+    head = insert(head, "b");
+    head = insert(head, "c");
+
+    head = remove_if_found(head, "b");
+
+    char *a4 = format_to_string(head);
+    CuAssertStrEquals(tc, "c, a", a4);
+    free(a4);
+
+    // Remove last element
+    head = remove_if_found(head, "a");
+
+    char *a5 = format_to_string(head);
+    CuAssertStrEquals(tc, "c", a5);
+    free(a5);
+
+    // Remove first element leaving remainder
+    head = insert(head, "d");
+
+    head = remove_if_found(head, "d");
+
+    char *a6 = format_to_string(head);
+    CuAssertStrEquals(tc, "c", a6);
+    free(a6);
+}
+
 CuSuite* DLListSuite() {
     CuSuite* suite = CuSuiteNew();
     SUITE_ADD_TEST(suite, TestInsertFind);
     SUITE_ADD_TEST(suite, TestFindEmpty);
     SUITE_ADD_TEST(suite, TestPrintList);
+    SUITE_ADD_TEST(suite, TestCreateDelete);
     return suite;
 }
 

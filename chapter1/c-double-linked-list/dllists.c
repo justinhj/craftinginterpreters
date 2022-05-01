@@ -64,6 +64,7 @@ Element* remove_if_found(Element *head, const char *target) {
 char *format_to_string(Element *head) {
     size_t len = 2 * 2024;
     char *output = malloc(len);
+    output[0] = '\0';
     Element *p = head;
     size_t space_left = len;
     char *output_location = output;

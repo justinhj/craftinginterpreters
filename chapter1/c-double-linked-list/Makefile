@@ -30,5 +30,6 @@ clean:
 	rm -f $(TEST_OBJS) $(TEST_DEPS) main
 	rm -f $(OBJS) $(DEPS) main
 
-test: 
+.PHONY: test
+test: tests 
 	./tests

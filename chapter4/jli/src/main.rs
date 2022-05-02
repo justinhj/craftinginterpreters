@@ -29,19 +29,19 @@ struct TokenInstance {
     line: usize
 }
 
-enum ParseError {
+enum ScanError {
     UnexpectedChar(char),
 }
 
-struct ParserState<'a> {
+struct ScanState<'a> {
     line: usize,
     position: usize,
     tokens: Vec<TokenInstance>,
     source: &'a str,
 }
 
-fn begin_parse(source: &str) -> ParserState {
-    ParserState {
+fn begin_scan(source: &str) -> ScanState {
+    ScanState {
         line: 0,
         position: 0,
         tokens: vec!(),
@@ -49,11 +49,11 @@ fn begin_parse(source: &str) -> ParserState {
     }
 }
 
-fn is_parse_done(state: &ParserState) -> bool {
+fn is_scan_done(state: &ScanState) -> bool {
     state.position == state.source.len()
 }
 
-fn parse_next(state: &mut ParserState) -> Result<(), ParseError> {
+fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
 
     Ok(())
 }

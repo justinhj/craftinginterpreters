@@ -66,3 +66,56 @@ RIGHT_PAREN ) null
 SEMICOLON ; null
 EOF  null
 ```
+
+## Rust implementation notes
+
+The basic structure is to use enums to represent the different type of Tokens and TokenInstances that represent scanned tokens at a particular point in the file.
+
+The scan next loop is a lot of copy and pasting though, and not very pretty.
+
+First of all we can assume that nothing is an identifier if it doesn't start with an alphanumeric.
+
+We have a bunch of single character things like =,+ and /.
+
+We can ignore to end of line if encounter //
+
+Later on can implement /*
+
+We can make a list of token parsers as helpers
+
+SingleCharacter can go first, these are where a single character guarantees a token
+
+```
+  LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
+  COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR,
+```
+
+OneOrTwoCharacter
+
+```
+  BANG, BANG_EQUAL,
+  EQUAL, EQUAL_EQUAL,
+  GREATER, GREATER_EQUAL,
+  LESS, LESS_EQUAL,
+```
+
+Here you have a choice of tokens depending on if the following character matches or not
+
+SlashAndComment
+
+This handles either a single slash which yields `SLASH` or it is comment and you must advance to after the next newline.
+
+Skip whitespace 
+
+newlines
+  increment line count and continue
+  
+alpha 
+  parse an identifier 
+  after parsing it yield an identifier or see it matches a keyword
+  
+```
+  AND, CLASS, ELSE, FALSE, FUN, FOR, IF, NIL, OR,
+  PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
+```
+

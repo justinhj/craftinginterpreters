@@ -1,7 +1,9 @@
 // Scanner for lox
 // Tools to turn a string of lox source into tokens
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // literals
     Identifier(String),
@@ -129,20 +131,62 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
             m if m.is_ascii_digit() => number_scanner(state),
             // Identifiers
             // TODO make a function
-            m if m.is_ascii_alphabetic() => {
-                state.position = state.position + 1;
-                state.source = &state.source[1..];
-                state.tokens.push(TokenInstance {
-                    token_type: Token::Identifier(m.to_string()),
-                    lexeme: next_char.to_string(),
-                    line: state.line,
-                })
-            }
+            m if m.is_ascii_alphabetic() => identifier_or_keyword_scanner(state),
             _ => return Err(ScanError::UnexpectedChar(next_char)),
         };
         Ok(())
     } else {
         Err(ScanError::EndOfInput)
+    }
+}
+
+lazy_static! {
+    static ref KEY_WORDS: HashMap<String, Token> = {
+        let mut m = HashMap::new();
+        m.insert("and".to_string(), Token::And);
+        m.insert("class".to_string(), Token::Class);
+        m.insert("else".to_string(), Token::Else);
+        m.insert("false".to_string(), Token::False);
+        m.insert("fun".to_string(), Token::Fun);
+        m.insert("for".to_string(), Token::For);
+        m.insert("if".to_string(), Token::If);
+        m.insert("nil".to_string(), Token::Nil);
+        m.insert("or".to_string(), Token::Or);
+        m.insert("print".to_string(), Token::Print);
+        m.insert("return".to_string(), Token::Return);
+        m.insert("super".to_string(), Token::Super);
+        m.insert("this".to_string(), Token::This);
+        m.insert("true".to_string(), Token::True);
+        m.insert("var".to_string(), Token::Var);
+        m.insert("while".to_string(), Token::While);
+        m
+    };
+}
+
+fn identifier_or_keyword_scanner(state: &mut ScanState) {
+    let word = if let Some(end_pos) = state
+        .source
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+    {
+        &state.source[..end_pos]
+    } else {
+        &state.source[..]
+    };
+
+    state.position = state.position + word.len();
+    state.source = &state.source[word.len()..];
+    if let Some(keyword_token) = KEY_WORDS.get(word) {
+        state.tokens.push(TokenInstance {
+            token_type: keyword_token.clone(),
+            lexeme: word.to_string(),
+            line: state.line,
+        })
+    } else {
+        state.tokens.push(TokenInstance {
+            token_type: Token::Identifier(word.to_string()),
+            lexeme: word.to_string(),
+            line: state.line,
+        })
     }
 }
 

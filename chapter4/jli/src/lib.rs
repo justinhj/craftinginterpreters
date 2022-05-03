@@ -5,48 +5,48 @@
 #[derive(Debug, PartialEq)]
 pub enum Token {
     // literals
-    IDENTIFIER(String),
-    NUMBER(f64),
-    STRING(String),
+    Identifier(String),
+    Number(f64),
+    String(String),
     // single character operators
-    EQUAL,
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    LEFT_BRACE,
-    RIGHT_BRACE,
-    COMMA,
-    DOT,
-    MINUS,
-    PLUS,
-    SEMICOLON,
-    STAR,
+    Equal,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Star,
     // single or double
-    BANG,
-    BANG_EQUAL,
-    EQUAL_EQUAL,
-    GREATER,
-    GREATER_EQUAL,
-    LESS,
-    LESS_EQUAL,
+    Bang,
+    BangEqual,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
     // Keywords
-    AND,
-    CLASS,
-    ELSE,
-    FALSE,
-    FUN,
-    FOR,
-    IF,
-    NIL,
-    OR,
-    PRINT,
-    RETURN,
-    SUPER,
-    THIS,
-    TRUE,
-    VAR,
-    WHILE,
+    And,
+    Class,
+    Else,
+    False,
+    Fun,
+    For,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
     // End marker
-    EOF,
+    Eof,
 }
 
 // Design decisions. Should lexeme exist for things that are constant like
@@ -89,37 +89,37 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
     if let Some(next_char) = state.source.chars().nth(0) {
         match next_char {
             // Single characters
-            '(' => single_character_scanner(next_char, Token::LEFT_PAREN, state),
-            ')' => single_character_scanner(next_char, Token::RIGHT_PAREN, state),
-            '{' => single_character_scanner(next_char, Token::LEFT_BRACE, state),
-            '}' => single_character_scanner(next_char, Token::RIGHT_BRACE, state),
-            ',' => single_character_scanner(next_char, Token::COMMA, state),
-            '.' => single_character_scanner(next_char, Token::DOT, state),
-            '-' => single_character_scanner(next_char, Token::MINUS, state),
-            '+' => single_character_scanner(next_char, Token::PLUS, state),
-            ';' => single_character_scanner(next_char, Token::SEMICOLON, state),
-            '*' => single_character_scanner(next_char, Token::STAR, state),
+            '(' => single_character_scanner(next_char, Token::LeftParen, state),
+            ')' => single_character_scanner(next_char, Token::RightParen, state),
+            '{' => single_character_scanner(next_char, Token::LeftBrace, state),
+            '}' => single_character_scanner(next_char, Token::RightBrace, state),
+            ',' => single_character_scanner(next_char, Token::Comma, state),
+            '.' => single_character_scanner(next_char, Token::Dot, state),
+            '-' => single_character_scanner(next_char, Token::Minus, state),
+            '+' => single_character_scanner(next_char, Token::Plus, state),
+            ';' => single_character_scanner(next_char, Token::Semicolon, state),
+            '*' => single_character_scanner(next_char, Token::Star, state),
 
             // Single OR double characters
             '=' => single_or_double_character_scanner(
                 next_char,
                 '=',
-                Token::EQUAL,
-                Token::GREATER_EQUAL,
+                Token::Equal,
+                Token::GreaterEqual,
                 state,
             ),
             '>' => single_or_double_character_scanner(
                 next_char,
                 '=',
-                Token::GREATER,
-                Token::GREATER_EQUAL,
+                Token::Greater,
+                Token::GreaterEqual,
                 state,
             ),
             '<' => single_or_double_character_scanner(
                 next_char,
                 '=',
-                Token::LESS,
-                Token::LESS_EQUAL,
+                Token::Less,
+                Token::LessEqual,
                 state,
             ),
 
@@ -129,7 +129,7 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
                 state.position = state.position + 1;
                 state.source = &state.source[1..];
                 state.tokens.push(TokenInstance {
-                    token_type: Token::NUMBER(str::parse::<f64>(&m.to_string()).unwrap()),
+                    token_type: Token::Number(str::parse::<f64>(&m.to_string()).unwrap()),
                     lexeme: next_char.to_string(),
                     line: state.line,
                 })
@@ -140,7 +140,7 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
                 state.position = state.position + 1;
                 state.source = &state.source[1..];
                 state.tokens.push(TokenInstance {
-                    token_type: Token::IDENTIFIER(m.to_string()),
+                    token_type: Token::Identifier(m.to_string()),
                     lexeme: next_char.to_string(),
                     line: state.line,
                 })
@@ -198,7 +198,7 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
         scan_next(&mut state)?;
     }
     state.tokens.push(TokenInstance {
-        token_type: Token::EOF,
+        token_type: Token::Eof,
         lexeme: "".to_string(),
         line: state.line,
     });
@@ -206,7 +206,6 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
 }
 
 mod tests {
-
     use super::*;
 
     #[test]
@@ -215,17 +214,17 @@ mod tests {
 
         let expected = vec![
             TokenInstance {
-                token_type: Token::EQUAL,
+                token_type: Token::Equal,
                 lexeme: "=".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::PLUS,
+                token_type: Token::Plus,
                 lexeme: "+".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::EOF,
+                token_type: Token::Eof,
                 lexeme: "".to_string(),
                 line: 0,
             },
@@ -240,37 +239,37 @@ mod tests {
 
         let expected = vec![
             TokenInstance {
-                token_type: Token::IDENTIFIER("a".to_string()),
+                token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::EQUAL,
+                token_type: Token::Equal,
                 lexeme: "=".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::NUMBER(1.0),
+                token_type: Token::Number(1.0),
                 lexeme: "1".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::PLUS,
+                token_type: Token::Plus,
                 lexeme: "+".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::NUMBER(2.0),
+                token_type: Token::Number(2.0),
                 lexeme: "2".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::SEMICOLON,
+                token_type: Token::Semicolon,
                 lexeme: ";".to_string(),
                 line: 0,
             },
             TokenInstance {
-                token_type: Token::EOF,
+                token_type: Token::Eof,
                 lexeme: "".to_string(),
                 line: 0,
             },

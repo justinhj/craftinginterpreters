@@ -205,6 +205,7 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
     Ok(state.tokens)
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

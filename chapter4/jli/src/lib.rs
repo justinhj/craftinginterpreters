@@ -185,7 +185,7 @@ pub fn single_or_double_character_scanner(
         state.position = state.position + 1;
         state.source = &state.source[1..];
         state.tokens.push(TokenInstance {
-            token_type: double_token,
+            token_type: single_token,
             lexeme: c.to_string(),
             line: state.line,
         })

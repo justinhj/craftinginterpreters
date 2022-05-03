@@ -60,6 +60,7 @@ pub struct TokenInstance {
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char),
+    NumberFormatErr(String),
     EndOfInput,
 }
 
@@ -125,16 +126,7 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
             ),
 
             // Numbers
-            // TODO make a function
-            m if m.is_ascii_digit() => {
-                state.position = state.position + 1;
-                state.source = &state.source[1..];
-                state.tokens.push(TokenInstance {
-                    token_type: Token::Number(str::parse::<f64>(&m.to_string()).unwrap()),
-                    lexeme: next_char.to_string(),
-                    line: state.line,
-                })
-            }
+            m if m.is_ascii_digit() => number_scanner(state),
             // Identifiers
             // TODO make a function
             m if m.is_ascii_alphabetic() => {
@@ -151,6 +143,35 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
         Ok(())
     } else {
         Err(ScanError::EndOfInput)
+    }
+}
+
+fn number_scanner(state: &mut ScanState) {
+    if let Some(end_pos) = state
+        .source
+        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+    {
+        let numeric_characters = &state.source[..end_pos];
+        state.position = state.position + end_pos;
+        state.source = &state.source[end_pos..];
+
+        let value = str::parse::<f64>(&numeric_characters).unwrap();
+
+        state.tokens.push(TokenInstance {
+            token_type: Token::Number(value), // TODO should catch and convert this on error
+            lexeme: numeric_characters.to_string(),
+            line: state.line,
+        })
+    } else {
+        // Edge case that the file ends with one or more digits
+        let numeric_characters = &state.source[..];
+        state.position = state.position + state.source.len();
+        state.source = "";
+        state.tokens.push(TokenInstance {
+            token_type: Token::Number(str::parse::<f64>(&numeric_characters).unwrap()), // TODO should catch and convert this on error
+            lexeme: numeric_characters.to_string(),
+            line: state.line,
+        })
     }
 }
 
@@ -203,7 +224,6 @@ pub fn skip_character(state: &mut ScanState) -> () {
     state.position = state.position + 1;
     state.source = &state.source[1..];
 }
-
 
 pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
     let mut state: ScanState = begin_scan(input);
@@ -371,6 +391,46 @@ mod tests {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
                 line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_numerics() {
+        let input = "120,120.5,121".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Number(120.0),
+                lexeme: "120".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Number(120.5),
+                lexeme: "120.5".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Number(121.0),
+                lexeme: "121".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 0,
             },
         ];
 

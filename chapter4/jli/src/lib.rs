@@ -285,6 +285,7 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn scan_test_arithmetic_operators() {
@@ -435,6 +436,94 @@ mod tests {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
                 line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_function() {
+        let input = "\
+            fun addPair(a, b) {\n\
+              return a + b;\n\
+            }";
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Fun,
+                lexeme: "fun".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("addPair".to_string()),
+                lexeme: "addPair".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::LeftParen,
+                lexeme: "(".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::RightParen,
+                lexeme: ")".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::LeftBrace,
+                lexeme: "{".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Return,
+                lexeme: "return".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Semicolon,
+                lexeme: ";".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::RightBrace,
+                lexeme: "}".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 2,
             },
         ];
 

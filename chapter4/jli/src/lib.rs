@@ -1,6 +1,5 @@
 // Scanner for lox
 // Tools to turn a string of lox source into tokens
-// TODO make into a library module
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -84,10 +83,12 @@ pub fn is_scan_done(state: &ScanState) -> bool {
     state.source.is_empty()
 }
 
-// TODO handle whitespace and line counting, comments
 pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
     if let Some(next_char) = state.source.chars().nth(0) {
         match next_char {
+            // Skip whitespace, for it is not signicant, and handle line counting
+            '\t' | ' ' | '\r' => skip_character(state),
+            '\n' => skip_character_new_line(state),
             // Single characters
             '(' => single_character_scanner(next_char, Token::LeftParen, state),
             ')' => single_character_scanner(next_char, Token::RightParen, state),
@@ -192,6 +193,18 @@ pub fn single_or_double_character_scanner(
     }
 }
 
+pub fn skip_character_new_line(state: &mut ScanState) -> () {
+    state.position = state.position + 1;
+    state.source = &state.source[1..];
+    state.line = state.line + 1;
+}
+
+pub fn skip_character(state: &mut ScanState) -> () {
+    state.position = state.position + 1;
+    state.source = &state.source[1..];
+}
+
+
 pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
     let mut state: ScanState = begin_scan(input);
     while !is_scan_done(&state) {
@@ -222,6 +235,51 @@ mod tests {
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 0,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_arithmetic_expression_with_spaces() {
+        let input = " a = 1 + 2 ; ".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Number(1.0),
+                lexeme: "1".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Number(2.0),
+                lexeme: "2".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Semicolon,
+                lexeme: ";".to_string(),
                 line: 0,
             },
             TokenInstance {
@@ -273,6 +331,46 @@ mod tests {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
                 line: 0,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_new_lines() {
+        let input = "a=\r\nb+c".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 0,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("c".to_string()),
+                lexeme: "c".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 1,
             },
         ];
 

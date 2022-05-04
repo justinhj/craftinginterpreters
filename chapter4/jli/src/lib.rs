@@ -30,6 +30,8 @@ pub enum Token {
     GreaterEqual,
     Less,
     LessEqual,
+    // Special
+    Slash,
     // Keywords
     And,
     Class,
@@ -64,7 +66,7 @@ impl fmt::Debug for TokenInstance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {
             Token::Identifier(string) => write!(f, "IDENTIFIER {} null", string),
-            Token::Number(num) => write!(f, "NUMBER {} {}", self.lexeme, num),
+            Token::Number(num) => write!(f, "NUMBER {} {:.1}", self.lexeme, num),
             Token::String(string) => write!(f, "STRING {} {}", self.lexeme, string),
             Token::Equal => write!(f, "EQUAL = null"),
             Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
@@ -100,6 +102,7 @@ impl fmt::Debug for TokenInstance {
             Token::True => write!(f, "TRUE true null"),
             Token::Var => write!(f, "VAR var null"),
             Token::While => write!(f, "WHILE while null"),
+            Token::Slash => write!(f, "SLASH / null"),
             Token::Eof => write!(f, "EOF  null"),
         }
     }
@@ -172,12 +175,12 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
                 Token::LessEqual,
                 state,
             ),
-
+            // Slash or comment
+            '/' => slash_or_comment_scanner(state),
             // Numbers
             m if m.is_ascii_digit() => number_scanner(state),
             // Identifiers
-            // TODO make a function
-            m if m.is_ascii_alphabetic() => identifier_or_keyword_scanner(state),
+            m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
             _ => return Err(ScanError::UnexpectedChar(next_char)),
         };
         Ok(())
@@ -260,6 +263,27 @@ fn number_scanner(state: &mut ScanState) {
         state.tokens.push(TokenInstance {
             token_type: Token::Number(str::parse::<f64>(&numeric_characters).unwrap()), // TODO should catch and convert this on error
             lexeme: numeric_characters.to_string(),
+            line: state.line,
+        })
+    }
+}
+
+pub fn slash_or_comment_scanner(state: &mut ScanState) {
+    let next_char = state.source.chars().nth(1);
+    if matches!(next_char, Some(next_char) if next_char == '/') {
+        if let Some(new_line_pos) = state.source.find(|n| n == '\n') {
+            state.position = state.position + new_line_pos;
+            state.source = &state.source[new_line_pos..];
+        } else {
+            state.position = state.position + state.source.len();
+            state.source = "";
+        }
+    } else {
+        state.position = state.position + 1;
+        state.source = &state.source[1..];
+        state.tokens.push(TokenInstance {
+            token_type: Token::Slash,
+            lexeme: '/'.to_string(),
             line: state.line,
         })
     }

@@ -62,11 +62,29 @@ pub struct TokenInstance {
     line: usize,
 }
 
+// We want to emulate the String format of Double in Java to make the tests pass
+// This is described in the Java source/documentation as:
+//   How many digits must be printed for the fractional part of
+//   <i>m</i> or <i>a</i>? There must be at least one digit to represent
+//   the fractional part, and beyond that as many, but only as many, more
+//   digits as are needed to uniquely distinguish the argument value from
+//   adjacent values of type {@code double}.
+fn num_format(num: f64) -> String {
+    let s = format!("{:.3}", num);
+    if let Some(non_zero_pos) = s.rfind(|c: char| c != '0') {
+        let zero_count = s.len() - (non_zero_pos + 1);
+        let count = std::cmp::min(zero_count, 2);
+        return s[0..s.len() - count].to_string();
+    } else {
+        panic!("Unexpected number format {:?}", s);
+    }
+}
+
 impl fmt::Debug for TokenInstance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {
             Token::Identifier(string) => write!(f, "IDENTIFIER {} null", string),
-            Token::Number(num) => write!(f, "NUMBER {} {:.1}", self.lexeme, num),
+            Token::Number(num) => write!(f, "NUMBER {} {}", self.lexeme, num_format(*num)),
             Token::String(string) => write!(f, "STRING \"{}\" {}", self.lexeme, string),
             Token::Equal => write!(f, "EQUAL = null"),
             Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
@@ -232,9 +250,9 @@ fn string_scanner(state: &mut ScanState) {
             line: state.line,
         });
         state.position = state.position + end_quote_pos + 1;
-        state.source = &state.source[end_quote_pos+1..];
+        state.source = &state.source[end_quote_pos + 1..];
     } else {
-        // TODO error handling for this and, for example, numbers, needs to be better
+        // TODO error handling for this and, for example, numbers, needs to be better integrated
         panic!("Unterminated string {:?}", state.source);
     }
 }
@@ -266,6 +284,8 @@ fn identifier_or_keyword_scanner(state: &mut ScanState) {
     }
 }
 
+// TODO need to fix this for a number that ends with a dot, it should not include the dot
+// Example 123. should emit the number 123 and dot.
 fn number_scanner(state: &mut ScanState) {
     if let Some(end_pos) = state
         .source
@@ -665,5 +685,20 @@ mod tests {
         ];
 
         assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn num_formatter_test() {
+        let s1: f64 = 100.;
+        let s2: f64 = 100.1;
+        let s3: f64 = 100.12;
+        let s4: f64 = 100.123;
+        let s5: f64 = 100.1234;
+
+        assert_eq!(num_format(s1), "100.0".to_string());
+        assert_eq!(num_format(s2), "100.1".to_string());
+        assert_eq!(num_format(s3), "100.12".to_string());
+        assert_eq!(num_format(s4), "100.123".to_string());
+        assert_eq!(num_format(s5), "100.123".to_string());
     }
 }

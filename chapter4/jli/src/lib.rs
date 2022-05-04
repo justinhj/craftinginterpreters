@@ -158,7 +158,14 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
                 next_char,
                 '=',
                 Token::Equal,
-                Token::GreaterEqual,
+                Token::EqualEqual,
+                state,
+            ),
+            '!' => single_or_double_character_scanner(
+                next_char,
+                '=',
+                Token::Equal,
+                Token::BangEqual,
                 state,
             ),
             '>' => single_or_double_character_scanner(

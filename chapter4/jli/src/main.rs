@@ -12,7 +12,6 @@ fn main() {
             Ok(tokens) => tokens.iter().for_each(|token| println!("{:?}", token)),
             Err(err) => println!("Error {:?}", err),
         }
-
     } else {
         let input = "\
             fun addPair(a, b) {\n\

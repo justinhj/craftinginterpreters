@@ -67,7 +67,7 @@ impl fmt::Debug for TokenInstance {
         match &self.token_type {
             Token::Identifier(string) => write!(f, "IDENTIFIER {} null", string),
             Token::Number(num) => write!(f, "NUMBER {} {:.1}", self.lexeme, num),
-            Token::String(string) => write!(f, "STRING {} {}", self.lexeme, string),
+            Token::String(string) => write!(f, "STRING \"{}\" {}", self.lexeme, string),
             Token::Equal => write!(f, "EQUAL = null"),
             Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
             Token::RightParen => write!(f, "RIGHT_PAREN ) null"),
@@ -181,6 +181,8 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
             m if m.is_ascii_digit() => number_scanner(state),
             // Identifiers
             m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
+            // String literals
+            '"' => string_scanner(state),
             _ => return Err(ScanError::UnexpectedChar(next_char)),
         };
         Ok(())
@@ -210,6 +212,24 @@ lazy_static! {
         m.insert("while".to_string(), Token::While);
         m
     };
+}
+
+fn string_scanner(state: &mut ScanState) {
+    state.position = state.position + 1;
+    state.source = &state.source[1..];
+    if let Some(end_quote_pos) = state.source.find(|n| n == '"') {
+        let word = &state.source[..end_quote_pos];
+        state.tokens.push(TokenInstance {
+            token_type: Token::String(word.to_string()),
+            lexeme: word.to_string(),
+            line: state.line,
+        });
+        state.position = state.position + end_quote_pos + 1;
+        state.source = &state.source[end_quote_pos+1..];
+    } else {
+        // TODO error handling for this and, for example, numbers, needs to be better
+        panic!("Unterminated string {:?}", state.source);
+    }
 }
 
 fn identifier_or_keyword_scanner(state: &mut ScanState) {

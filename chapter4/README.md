@@ -119,3 +119,12 @@ alpha
   PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
 ```
 
+## Testing
+
+Some tests are added in `lib.rs` file but the book source code also has a test runner.
+
+In the book source folder run:
+
+```
+dart tool/bin/test.dart chap04_scanning --interpreter ~/projects/craftinginterpreters/chapter4/jli/target/release/jli 
+```

@@ -119,6 +119,10 @@ alpha
   PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
 ```
 
+## Critique
+
+Some of the code is horrible in that it is more complex than it needs to be. This mostly comes from me sticking to using a character iterator for the parsing and otherwise staying close to the book code. I should really have implemented the advance, peek functionality in the book. A better approach would be to swap out my code for a parser combinator libary like [nom](https://docs.rs/nom/latest/nom/)
+
 ## Testing
 
 Some tests are added in `lib.rs` file but the book source code also has a test runner.

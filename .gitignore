@@ -4,3 +4,4 @@ tests
 *.d
 Cargo.lock
 target/
+history.txt

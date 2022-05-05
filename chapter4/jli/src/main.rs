@@ -1,5 +1,6 @@
-// The library code is really just a scanner and contains not code load files and so on. This
-// executable handles the loading of scripts or scanning from input.
+// Lox code scanner
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 use std::env;
 use std::fs;
 
@@ -13,16 +14,39 @@ fn main() {
             Err(err) => println!("Error {:?}", err),
         }
     } else {
-        let input = "\
-            fun addPair(a, b) {\n\
-              c = 3.14;\n\
-              return a + b * c;\n\
-            }";
-
-        match jli::scan(input) {
-            Ok(tokens) => tokens.iter().for_each(|token| println!("{:?}", token)),
-            Err(err) => println!("Error {:?}", err),
+        // `()` can be used when no completer is required
+        let mut rl = Editor::<()>::new();
+        println!("Lox scanner");
+        if rl.load_history("history.txt").is_err() {
+            println!("No previous history.");
         }
-        println!("Pass a filename")
+        loop {
+            let readline = rl.readline(">> ");
+            match readline {
+                Ok(line) => {
+
+                    match jli::scan(&line) {
+                        Ok(tokens) => {
+                            rl.add_history_entry(line.as_str());
+                            tokens.iter().for_each(|token| println!("{:?}", token))
+                        },
+                        Err(err) => println!("Error {:?}", err),
+                    }
+                }
+                Err(ReadlineError::Interrupted) => {
+                    println!("CTRL-C");
+                    break;
+                }
+                Err(ReadlineError::Eof) => {
+                    println!("CTRL-D");
+                    break;
+                }
+                Err(err) => {
+                    println!("Error: {:?}", err);
+                    break;
+                }
+            }
+        }
+        rl.save_history("history.txt").unwrap();
     }
 }

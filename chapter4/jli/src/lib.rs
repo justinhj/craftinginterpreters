@@ -53,8 +53,6 @@ pub enum Token {
     Eof,
 }
 
-// Design decisions. Should lexeme exist for things that are constant like
-// operators, keywords? It can be empty string but maybe it should be Option
 #[derive(PartialEq)]
 pub struct TokenInstance {
     token_type: Token,
@@ -134,14 +132,14 @@ pub enum ScanError {
     EndOfInput,
 }
 
-pub struct ScanState<'a> {
+struct ScanState<'a> {
     line: usize,
     position: usize,
     tokens: Vec<TokenInstance>,
     source: &'a str,
 }
 
-pub fn begin_scan(source: &str) -> ScanState {
+fn begin_scan(source: &str) -> ScanState {
     ScanState {
         line: 0,
         position: 0,
@@ -150,11 +148,11 @@ pub fn begin_scan(source: &str) -> ScanState {
     }
 }
 
-pub fn is_scan_done(state: &ScanState) -> bool {
+fn is_scan_done(state: &ScanState) -> bool {
     state.source.is_empty()
 }
 
-pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
+fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
     if let Some(next_char) = state.source.chars().nth(0) {
         match next_char {
             // Skip whitespace, for it is not signicant, and handle line counting
@@ -253,7 +251,10 @@ fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
         state.source = &state.source[end_quote_pos + 1..];
         Ok(())
     } else {
-        Err(ScanError::UnterminatedString(format!("Unterminated string {:?}", state.source)))
+        Err(ScanError::UnterminatedString(format!(
+            "Unterminated string {:?}",
+            state.source
+        )))
     }
 }
 
@@ -285,51 +286,59 @@ fn identifier_or_keyword_scanner(state: &mut ScanState) -> Result<(), ScanError>
     Ok(())
 }
 
-// TODO need to fix this for a number that ends with a dot, it should not include the dot
-// Example 123. should emit the number 123 and dot.
+// This is truly awful code. Could be greatly simplified by doing the parsing a lot more
+// like the book does but, well, it's too late now. A better solution would be to rewrite
+// using a Rust parsing libary anyway.
 fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-    if let Some(end_pos) = state
-        .source
-        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-    {
-        let numeric_characters = &state.source[..end_pos];
-        state.position = state.position + end_pos;
-        state.source = &state.source[end_pos..];
+    let number_str = if let Some(digit_end) = state.source.find(|c: char| !c.is_ascii_digit()) {
+        let digit_end_char = state.source.chars().nth(digit_end);
+        let digit_end_next_char = state.source.chars().nth(digit_end + 1);
 
-        match str::parse::<f64>(&numeric_characters) {
-            Ok(value) => {
-                state.tokens.push(TokenInstance {
-                    token_type: Token::Number(value),
-                    lexeme: numeric_characters.to_string(),
-                    line: state.line,
-                });
-                Ok(())
-            },
-            Err(_) => 
-                Err(ScanError::NumberFormatError(numeric_characters.to_string()))
+        match (digit_end_char, digit_end_next_char) {
+            (Some('.'), Some(next)) if next.is_ascii_digit() => {
+                if let Some(next_digit_end) =
+                    &state.source[digit_end + 1..].find(|c: char| !c.is_ascii_digit())
+                {
+                    let r = &state.source[..digit_end + 1 + *next_digit_end];
+                    state.position = state.position + digit_end + 1 + *next_digit_end;
+                    state.source = &state.source[digit_end + 1 + *next_digit_end..];
+                    r
+                } else {
+                    let r = &state.source[..digit_end + 1];
+                    state.position = state.position + digit_end + 1;
+                    state.source = &state.source[digit_end + 1..];
+                    r
+                }
+            }
+            (Some(_), _) => {
+                let r = &state.source[..digit_end];
+                state.position = state.position + digit_end;
+                state.source = &state.source[digit_end..];
+                r
+            }
+            (_, _) => panic!("Unexpected"),
         }
     } else {
-        // Edge case that the file ends with one or more digits
-        let numeric_characters = &state.source[..];
+        let r = &state.source[..];
         state.position = state.position + state.source.len();
         state.source = "";
+        r
+    };
 
-        match str::parse::<f64>(&numeric_characters) {
-            Ok(value) => {
-                state.tokens.push(TokenInstance {
-                    token_type: Token::Number(value),
-                    lexeme: numeric_characters.to_string(),
-                    line: state.line,
-                });
-                Ok(())
-            },
-            Err(_) =>
-                Err(ScanError::NumberFormatError(numeric_characters.to_string()))
+    match str::parse::<f64>(&number_str) {
+        Ok(value) => {
+            state.tokens.push(TokenInstance {
+                token_type: Token::Number(value),
+                lexeme: number_str.to_string(),
+                line: state.line,
+            });
+            Ok(())
         }
+        Err(_) => Err(ScanError::NumberFormatError(number_str.to_string())),
     }
 }
 
-pub fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
+fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     let next_char = state.source.chars().nth(1);
     if matches!(next_char, Some(next_char) if next_char == '/') {
         if let Some(new_line_pos) = state.source.find(|n| n == '\n') {
@@ -352,7 +361,7 @@ pub fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> 
 }
 
 // Handle single-character
-pub fn single_character_scanner(c: char, token: Token, state: &mut ScanState) -> Result<(), ScanError> {
+fn single_character_scanner(c: char, token: Token, state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     state.tokens.push(TokenInstance {
@@ -363,7 +372,7 @@ pub fn single_character_scanner(c: char, token: Token, state: &mut ScanState) ->
     Ok(())
 }
 
-pub fn single_or_double_character_scanner(
+fn single_or_double_character_scanner(
     c: char,
     double_char: char,
     single_token: Token,
@@ -392,14 +401,14 @@ pub fn single_or_double_character_scanner(
     Ok(())
 }
 
-pub fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
+fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     state.line = state.line + 1;
     Ok(())
 }
 
-pub fn skip_character(state: &mut ScanState) -> Result<(), ScanError> {
+fn skip_character(state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     Ok(())

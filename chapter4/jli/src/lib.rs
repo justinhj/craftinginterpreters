@@ -1,4 +1,4 @@
-// Scanner for lox
+// Scanner for Lox
 // Tools to turn a string of lox source into tokens
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -129,7 +129,8 @@ impl fmt::Debug for TokenInstance {
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char),
-    NumberFormatErr(String),
+    NumberFormatError(String),
+    UnterminatedString(String),
     EndOfInput,
 }
 
@@ -209,8 +210,7 @@ pub fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
             // String literals
             '"' => string_scanner(state),
             _ => return Err(ScanError::UnexpectedChar(next_char)),
-        };
-        Ok(())
+        }
     } else {
         Err(ScanError::EndOfInput)
     }
@@ -239,7 +239,7 @@ lazy_static! {
     };
 }
 
-fn string_scanner(state: &mut ScanState) {
+fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     if let Some(end_quote_pos) = state.source.find(|n| n == '"') {
@@ -251,13 +251,13 @@ fn string_scanner(state: &mut ScanState) {
         });
         state.position = state.position + end_quote_pos + 1;
         state.source = &state.source[end_quote_pos + 1..];
+        Ok(())
     } else {
-        // TODO error handling for this and, for example, numbers, needs to be better integrated
-        panic!("Unterminated string {:?}", state.source);
+        Err(ScanError::UnterminatedString(format!("Unterminated string {:?}", state.source)))
     }
 }
 
-fn identifier_or_keyword_scanner(state: &mut ScanState) {
+fn identifier_or_keyword_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     let word = if let Some(end_pos) = state
         .source
         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
@@ -282,11 +282,12 @@ fn identifier_or_keyword_scanner(state: &mut ScanState) {
             line: state.line,
         })
     }
+    Ok(())
 }
 
 // TODO need to fix this for a number that ends with a dot, it should not include the dot
 // Example 123. should emit the number 123 and dot.
-fn number_scanner(state: &mut ScanState) {
+fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     if let Some(end_pos) = state
         .source
         .find(|c: char| !(c.is_ascii_digit() || c == '.'))
@@ -295,27 +296,40 @@ fn number_scanner(state: &mut ScanState) {
         state.position = state.position + end_pos;
         state.source = &state.source[end_pos..];
 
-        let value = str::parse::<f64>(&numeric_characters).unwrap();
-
-        state.tokens.push(TokenInstance {
-            token_type: Token::Number(value), // TODO should catch and convert this on error
-            lexeme: numeric_characters.to_string(),
-            line: state.line,
-        })
+        match str::parse::<f64>(&numeric_characters) {
+            Ok(value) => {
+                state.tokens.push(TokenInstance {
+                    token_type: Token::Number(value),
+                    lexeme: numeric_characters.to_string(),
+                    line: state.line,
+                });
+                Ok(())
+            },
+            Err(_) => 
+                Err(ScanError::NumberFormatError(numeric_characters.to_string()))
+        }
     } else {
         // Edge case that the file ends with one or more digits
         let numeric_characters = &state.source[..];
         state.position = state.position + state.source.len();
         state.source = "";
-        state.tokens.push(TokenInstance {
-            token_type: Token::Number(str::parse::<f64>(&numeric_characters).unwrap()), // TODO should catch and convert this on error
-            lexeme: numeric_characters.to_string(),
-            line: state.line,
-        })
+
+        match str::parse::<f64>(&numeric_characters) {
+            Ok(value) => {
+                state.tokens.push(TokenInstance {
+                    token_type: Token::Number(value),
+                    lexeme: numeric_characters.to_string(),
+                    line: state.line,
+                });
+                Ok(())
+            },
+            Err(_) =>
+                Err(ScanError::NumberFormatError(numeric_characters.to_string()))
+        }
     }
 }
 
-pub fn slash_or_comment_scanner(state: &mut ScanState) {
+pub fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     let next_char = state.source.chars().nth(1);
     if matches!(next_char, Some(next_char) if next_char == '/') {
         if let Some(new_line_pos) = state.source.find(|n| n == '\n') {
@@ -334,17 +348,19 @@ pub fn slash_or_comment_scanner(state: &mut ScanState) {
             line: state.line,
         })
     }
+    Ok(())
 }
 
 // Handle single-character
-pub fn single_character_scanner(c: char, token: Token, state: &mut ScanState) {
+pub fn single_character_scanner(c: char, token: Token, state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     state.tokens.push(TokenInstance {
         token_type: token,
         lexeme: c.to_string(),
         line: state.line,
-    })
+    });
+    Ok(())
 }
 
 pub fn single_or_double_character_scanner(
@@ -353,7 +369,7 @@ pub fn single_or_double_character_scanner(
     single_token: Token,
     double_token: Token,
     state: &mut ScanState,
-) {
+) -> Result<(), ScanError> {
     let next_char = state.source.chars().nth(1);
     if matches!(next_char, Some(next_char) if next_char == double_char) {
         state.position = state.position + 2;
@@ -373,17 +389,20 @@ pub fn single_or_double_character_scanner(
             line: state.line,
         })
     }
+    Ok(())
 }
 
-pub fn skip_character_new_line(state: &mut ScanState) -> () {
+pub fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
     state.line = state.line + 1;
+    Ok(())
 }
 
-pub fn skip_character(state: &mut ScanState) -> () {
+pub fn skip_character(state: &mut ScanState) -> Result<(), ScanError> {
     state.position = state.position + 1;
     state.source = &state.source[1..];
+    Ok(())
 }
 
 pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {

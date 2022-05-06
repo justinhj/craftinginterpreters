@@ -78,6 +78,8 @@ fn num_format(num: f64) -> String {
     }
 }
 
+// Note this is the Debug implementation for TokenInstance, but it may be valuable to create a
+// Display instance too.
 impl fmt::Debug for TokenInstance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {

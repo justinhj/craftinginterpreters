@@ -1,0 +1,18 @@
+[package]
+name = "jlinom"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "jlinom"
+path = "src/lib.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lazy_static = "1.4.0"
+rustyline = "9.1.2"
+nom = "7.1.1"
+
+[dev-dependencies]
+pretty_assertions = "1.2.1"

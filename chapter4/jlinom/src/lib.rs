@@ -1,8 +1,14 @@
-use nom::character::complete::alphanumeric1;
+use nom::branch::alt;
+use nom::bytes::complete::is_not;
+use nom::bytes::complete::tag;
 use nom::character::complete::char;
-use nom::sequence::delimited;
-use nom::IResult;
+use nom::character::complete::{alpha1, alphanumeric1, multispace0};
 use nom::combinator::map;
+use nom::combinator::recognize;
+use nom::combinator::value;
+use nom::multi::many0;
+use nom::sequence::{delimited, pair, preceded};
+use nom::IResult;
 use std::fmt;
 
 #[derive(PartialEq, Clone)]
@@ -66,7 +72,7 @@ fn num_format(num: f64) -> String {
     if let Some(non_zero_pos) = s.rfind(|c: char| c != '0') {
         let zero_count = s.len() - (non_zero_pos + 1);
         let count = std::cmp::min(zero_count, 2);
-        return s[0..s.len() - count].to_string();
+        s[0..s.len() - count].to_string()
     } else {
         panic!("Unexpected number format {:?}", s);
     }
@@ -125,14 +131,54 @@ pub struct TokenInstance {
     // line: usize, // TODO can we do state?
     // yes with https://github.com/fflorent/nom_locate
 }
+
+// TODO possibly map errors into this format
+#[derive(Debug)]
+pub enum ScanError {
+    UnexpectedChar(char),
+    NumberFormatError(String),
+    UnterminatedString(String),
+    EndOfInput,
+    Error,
+}
+
+// Scan the input string returning either a vector of tokens or the first ScanError encountered
+// when scanning
+pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+    let result = many0(scan_token)(input);
+    match result {
+        Ok((_, tokens)) => Ok(tokens),
+        Err(_) => Err(ScanError::Error),
+    }
+}
+
+// Skip "//" to end of line
+pub fn scan_skip_eol_comment(input: &str) -> IResult<&str, ()> {
+    value((), pair(tag("//"), is_not("\n\r")))(input)
+}
+
+fn scan_token(input: &str) -> IResult<&str, TokenInstance> {
+    preceded(multispace0, alt((scan_quoted_string, scan_identifier)))(input)
+}
+
+// Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
+fn scan_identifier(input: &str) -> IResult<&str, TokenInstance> {
+    let ident = recognize(pair(
+        alpha1,
+        many0(alt((alphanumeric1, tag("-"), tag("_")))),
+    ));
+    map(ident, |s: &str| TokenInstance {
+        token_type: Token::Identifier(s.to_string()),
+        lexeme: s.to_string(),
+    })(input)
+}
+
 // String
 fn scan_quoted_string(input: &str) -> IResult<&str, TokenInstance> {
     let quoted_string = delimited(char('"'), alphanumeric1, char('"'));
-    let mut mr = map(quoted_string, |s: &str| {
-        TokenInstance{
-            token_type: Token::String(s.to_string()),
-            lexeme: s.to_string(),
-        }
+    let mut mr = map(quoted_string, |s: &str| TokenInstance {
+        token_type: Token::String(s.to_string()),
+        lexeme: s.to_string(),
     });
     mr(input)
 }
@@ -144,14 +190,32 @@ mod tests {
     #[test]
     fn test_scan_quoted_string() {
         let input = "\"Justin\"";
-        let token = TokenInstance{token_type: Token::String("Justin".to_string()), lexeme: "Justin".to_string()}; 
+        let token = TokenInstance {
+            token_type: Token::String("Justin".to_string()),
+            lexeme: "Justin".to_string(),
+        };
         assert_eq!(Ok(("", token)), scan_quoted_string(input));
     }
     #[test]
     fn test_scan_quoted_string_fail() {
         let input = "\"Justin";
-        let token = TokenInstance{token_type: Token::String("Justin".to_string()), lexeme: "Justin".to_string()}; 
         let r = scan_quoted_string(input);
-        assert!(r.is_err()); 
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn test_scan_assignment_statement() {
+        let input = "string \"Justin\"";
+        let items = scan(input).unwrap();
+        println!("{:?}", items);
+        assert!(items.len() == 2);
+    }
+
+    #[test]
+    fn test_scan_multiple_quoted_string() {
+        let input = "\"Justin\"\"Was\"\"Here\"";
+        let items = scan(input).unwrap();
+        println!("{:?}", items);
+        assert!(items.len() == 3);
     }
 }

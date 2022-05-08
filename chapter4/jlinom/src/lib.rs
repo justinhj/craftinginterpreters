@@ -1,7 +1,10 @@
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, alphanumeric1, anychar, char, multispace0, multispace1, one_of};
+use nom::character::complete::alphanumeric0;
+use nom::character::complete::{
+    alpha1, alphanumeric1, anychar, char, multispace0, multispace1, one_of,
+};
 use nom::combinator::{fail, map, peek, recognize, success, value};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded};
@@ -121,6 +124,9 @@ impl fmt::Debug for TokenInstance {
         }
     }
 }
+
+// This acts as a wrapper for tokens to enable addition information such as lexeme and position
+// info
 #[derive(PartialEq, Clone)]
 pub struct TokenInstance {
     token_type: Token,
@@ -129,7 +135,7 @@ pub struct TokenInstance {
     // yes with https://github.com/fflorent/nom_locate
 }
 
-// TODO possibly map errors into this format
+// TODO map errors into this format
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char),
@@ -139,68 +145,106 @@ pub enum ScanError {
     Error,
 }
 
-// TODO tomorrow many0 makes error handling a pain, and the option thing is messy too 
-// just replace scan with a more hand holding loop 
-
-// Scan the input string returning either a vector of tokens or the first ScanError encountered
-// when scanning
-pub fn scan(input: &str) -> Result<Vec<Option<TokenInstance>>, ScanError> {
-    let result = many0(scan_token)(input);
-    match result {
-        Ok((_, tokens)) => {
-            println!("tokens {:?}", tokens);
-            Ok(tokens)
-        }
-        Err(e) => {
-            println!("error {:?}", e);
-            Err(ScanError::Error)
+// Scan the input string returning either a vector of tokens or the first error
+pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+    // let result = many0(scan_token)(input);
+    let mut tokens: Vec<TokenInstance> = vec![];
+    let mut rest = input;
+    while !rest.is_empty() {
+        match scan_token(rest) {
+            Ok((new_rest, Some(token))) => {
+                tokens.insert(tokens.len(), token);
+                rest = new_rest;
+            }
+            Ok((new_rest, None)) => rest = new_rest,
+            Err(err) => {
+                println!("error {:?}", err);
+                return Err(ScanError::Error); // TODO do better error handling here
+            }
         }
     }
+
+    tokens.insert(
+        tokens.len(),
+        TokenInstance {
+            token_type: Token::Eof,
+            lexeme: "".to_string(),
+        },
+    );
+    Ok(tokens)
 }
 
 fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let peeker: IResult<&str, char> = peek(anychar)(input);
-
-    // println!("peeker {:?}", peeker);
     match peeker {
         Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),
         Ok((rest, c)) if c.is_ascii_alphabetic() => scan_identifier(rest),
         Ok((rest, '"')) => scan_quoted_string(rest),
-        Ok((rest, '(')) => single_char_to_token(Token::LeftParen, rest),
-        Ok((rest, ')')) => single_char_to_token(Token::RightParen, rest),
-        Ok((rest, '{')) => single_char_to_token(Token::LeftBrace, rest),
-        Ok((rest, '}')) => single_char_to_token(Token::RightBrace, rest),
-        Ok((rest, ',')) => single_char_to_token(Token::Comma, rest),
-        Ok((rest, '.')) => single_char_to_token(Token::Dot, rest),
-        Ok((rest, '-')) => single_char_to_token(Token::Minus, rest),
-        Ok((rest, '+')) => single_char_to_token(Token::Plus, rest),
-        Ok((rest, ';')) => single_char_to_token(Token::Semicolon, rest),
-        Ok((rest, '*')) => single_char_to_token(Token::Star, rest),
+        Ok((rest, '(')) => single_char_to_token(rest, Token::LeftParen),
+        Ok((rest, ')')) => single_char_to_token(rest, Token::RightParen),
+        Ok((rest, '{')) => single_char_to_token(rest, Token::LeftBrace),
+        Ok((rest, '}')) => single_char_to_token(rest, Token::RightBrace),
+        Ok((rest, ',')) => single_char_to_token(rest, Token::Comma),
+        Ok((rest, '.')) => single_char_to_token(rest, Token::Dot),
+        Ok((rest, '-')) => single_char_to_token(rest, Token::Minus),
+        Ok((rest, '+')) => single_char_to_token(rest, Token::Plus),
+        Ok((rest, ';')) => single_char_to_token(rest, Token::Semicolon),
+        Ok((rest, '*')) => single_char_to_token(rest, Token::Star),
+        Ok((rest, '=')) => scan_single_or_double(rest, '=', '=', Token::Equal, Token::EqualEqual),
+        Ok((rest, '!')) => scan_single_or_double(rest, '!', '=', Token::Bang, Token::BangEqual),
+        Ok((rest, '>')) => scan_single_or_double(rest, '>', '=', Token::Greater, Token::GreaterEqual),
+        Ok((rest, '<')) => scan_single_or_double(rest, '<', '=', Token::Less, Token::LessEqual),
+        // TODO slash or comment
+        // TODO numbers
         Ok((rest, w)) => {
             println!("unknown {:?} {:?}", rest, w);
             fail(rest)
-        },
+        }
         Err(err) => {
             println!("err {:?}", err);
-            Err(err)},
+            Err(err)
+        }
     }
-
-    // scan_identifier(input)
 }
 
-fn single_char_to_token(token: Token, input: &str) -> IResult<&str, Option<TokenInstance>> {
-    map(anychar, |c| Some(TokenInstance{token_type: token.clone(), lexeme: c.to_string()}))(input)
+// Single character symbols like *
+fn single_char_to_token(input: &str, token: Token) -> IResult<&str, Option<TokenInstance>> {
+    map(anychar, |c| {
+        Some(TokenInstance {
+            token_type: token.clone(),
+            lexeme: c.to_string(),
+        })
+    })(input)
 }
 
-// Scan symbols
-
-// fn is_single_check(c: char) -> bool {
-//     "(){},.-+;*".find(c).is_some()
-// }
-
-// fn scan_single_character(input: &str) -> IResult<&str, Option<TokenInstance>> {
-//    map(one_of("(){},.-+;*"), |s|
-// } 
+// Single OR double character symbols like = and ==
+fn scan_single_or_double(
+    input: &str,
+    single: char,
+    double: char,
+    single_token: Token,
+    double_token: Token,
+) -> IResult<&str, Option<TokenInstance>> {
+    let double_target: String = [single, double].iter().collect();
+    let mut parser = map(
+        alt((tag(&double_target[..]), tag(&double_target[0..1]))),
+        |m: &str| {
+            if m.len() == 2 {
+                Some(TokenInstance {
+                    token_type: double_token.clone(),
+                    lexeme: m.to_string(),
+                })
+            } else {
+                println!("m {:?}", m);
+                Some(TokenInstance {
+                    token_type: single_token.clone(),
+                    lexeme: m.to_string(),
+                })
+            }
+        },
+    );
+    parser(input)
+}
 
 // Skip "//" to end of line
 pub fn scan_skip_eol_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
@@ -223,7 +267,8 @@ fn scan_identifier(input: &str) -> IResult<&str, Option<TokenInstance>> {
 
 // String
 fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let quoted_string = delimited(char('"'), alphanumeric1, char('"'));
+    // TODO is there a better way to handle empty quoted string?
+    let quoted_string = alt((tag("\"\""), delimited(char('"'), is_not("\""), char('"'))));
     let mut mr = map(quoted_string, |s: &str| {
         Some(TokenInstance {
             token_type: Token::String(s.to_string()),
@@ -258,7 +303,7 @@ mod tests {
         let input = "string \"Justin\"";
         let items = scan(input).unwrap();
         println!("{:?}", items);
-        assert!(items.len() == 2);
+        assert!(items.len() == 3);
     }
 
     #[test]
@@ -266,6 +311,6 @@ mod tests {
         let input = "\"Justin\"\"Was\"\"Here\"";
         let items = scan(input).unwrap();
         println!("{:?}", items);
-        assert!(items.len() == 3);
+        assert!(items.len() == 4);
     }
 }

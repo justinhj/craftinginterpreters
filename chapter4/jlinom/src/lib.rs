@@ -1,11 +1,8 @@
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
-use nom::character::complete::char;
-use nom::character::complete::{alpha1, alphanumeric1, multispace0};
-use nom::combinator::map;
-use nom::combinator::recognize;
-use nom::combinator::value;
+use nom::character::complete::{alpha1, alphanumeric1, anychar, char, multispace0, multispace1};
+use nom::combinator::{fail, map, peek, recognize, success, value};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded};
 use nom::IResult;
@@ -124,7 +121,7 @@ impl fmt::Debug for TokenInstance {
         }
     }
 }
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct TokenInstance {
     token_type: Token,
     lexeme: String,
@@ -144,41 +141,80 @@ pub enum ScanError {
 
 // Scan the input string returning either a vector of tokens or the first ScanError encountered
 // when scanning
-pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+pub fn scan(input: &str) -> Result<Vec<Option<TokenInstance>>, ScanError> {
     let result = many0(scan_token)(input);
     match result {
-        Ok((_, tokens)) => Ok(tokens),
-        Err(_) => Err(ScanError::Error),
+        Ok((_, tokens)) => {
+            println!("tokens {:?}", tokens);
+            Ok(tokens)
+        }
+        Err(e) => {
+            println!("error {:?}", e);
+            Err(ScanError::Error)
+        }
     }
 }
 
-// Skip "//" to end of line
-pub fn scan_skip_eol_comment(input: &str) -> IResult<&str, ()> {
-    value((), pair(tag("//"), is_not("\n\r")))(input)
+fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
+    println!("st {:?}", input);
+    // let skipper = alt((multispace0, scan_skip_eol_comment));
+    // preceded(skipper, alt((scan_quoted_string, scan_identifier)))(input)
+    // if input.is_empty() {
+    //     success(Some(TokenInstance {
+    //         token_type: Token::Eof,
+    //         lexeme: "".to_string(),
+    //     }))(input)
+    let peeker: IResult<&str, char> = peek(anychar)(input);
+
+    println!("peeker {:?}", peeker);
+    match peeker {
+        Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),
+        Ok((rest, c)) if c.is_ascii_alphabetic() => scan_identifier(rest),
+        Ok((rest, '"')) => scan_quoted_string(rest),
+        Ok((rest, w)) => {
+            println!("unknown {:?} {:?}", rest, w);
+            fail(rest)
+        },
+        Err(err) => {
+            println!("err {:?}", err);
+            Err(err)},
+    }
+
+    // scan_identifier(input)
 }
 
-fn scan_token(input: &str) -> IResult<&str, TokenInstance> {
-    preceded(multispace0, alt((scan_quoted_string, scan_identifier)))(input)
+// Scan symbols
+
+// Skip "//" to end of line
+pub fn scan_skip_eol_comment(input: &str) -> IResult<&str, &str> {
+    value("", pair(tag("//"), is_not("\n\r")))(input)
 }
 
 // Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
-fn scan_identifier(input: &str) -> IResult<&str, TokenInstance> {
+fn scan_identifier(input: &str) -> IResult<&str, Option<TokenInstance>> {
+    println!("si {:?}", input);
+
     let ident = recognize(pair(
         alpha1,
         many0(alt((alphanumeric1, tag("-"), tag("_")))),
     ));
-    map(ident, |s: &str| TokenInstance {
-        token_type: Token::Identifier(s.to_string()),
-        lexeme: s.to_string(),
+    map(ident, |s: &str| {
+        Some(TokenInstance {
+            token_type: Token::Identifier(s.to_string()),
+            lexeme: s.to_string(),
+        })
     })(input)
 }
 
 // String
-fn scan_quoted_string(input: &str) -> IResult<&str, TokenInstance> {
+fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
+    println!("sq {:?}", input);
     let quoted_string = delimited(char('"'), alphanumeric1, char('"'));
-    let mut mr = map(quoted_string, |s: &str| TokenInstance {
-        token_type: Token::String(s.to_string()),
-        lexeme: s.to_string(),
+    let mut mr = map(quoted_string, |s: &str| {
+        Some(TokenInstance {
+            token_type: Token::String(s.to_string()),
+            lexeme: s.to_string(),
+        })
     });
     mr(input)
 }
@@ -194,7 +230,7 @@ mod tests {
             token_type: Token::String("Justin".to_string()),
             lexeme: "Justin".to_string(),
         };
-        assert_eq!(Ok(("", token)), scan_quoted_string(input));
+        assert_eq!(Ok(("", Some(token))), scan_quoted_string(input));
     }
     #[test]
     fn test_scan_quoted_string_fail() {

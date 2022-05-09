@@ -3,7 +3,7 @@ use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
-use nom::combinator::{fail, map, peek, recognize, value};
+use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, tuple};
 use nom::IResult;
@@ -196,7 +196,7 @@ fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
         }
         Ok((rest, '<')) => scan_single_or_double(rest, '<', '=', Token::Less, Token::LessEqual),
         Ok((rest, '/')) => scan_slash_or_comment(rest),
-        Ok((rest, c)) if c.is_ascii_alphabetic() => scan_identifier_or_keyword(rest),
+        Ok((rest, c)) if c.is_ascii_alphabetic() || c == '_' => scan_identifier_or_keyword(rest),
         Ok((rest, '"')) => scan_quoted_string(rest),
         Ok((rest, c)) if c.is_ascii_digit() => scan_number(rest),
         Ok((rest, unknown)) => {
@@ -261,13 +261,19 @@ fn scan_single_or_double(
 
 // Skip "//" to end of line
 pub fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    value(None, pair(tag("//"), is_not("\n\r")))(input)
+    let r: IResult<&str,&str> = peek(tag("//"))(input);
+    match r {
+        Ok((rest,_)) => value(None, pair(tag("//"), alt((eof, is_not("\n\r")))))(rest),
+        Err(_) => map(tag("/"),|c: &str| {
+            Some(TokenInstance{token_type:Token::Slash, lexeme:c.to_string()})
+        })(input)
+    }
 }
 
 // Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
 fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let ident = recognize(pair(
-        alpha1,
+        alt((alpha1,tag("_"))),
         many0(alt((alphanumeric1, tag("-"), tag("_")))),
     ));
     map(ident, |s: &str| {

@@ -1,14 +1,13 @@
+use lazy_static::lazy_static;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::bytes::complete::tag;
-use nom::character::complete::alphanumeric0;
-use nom::character::complete::{
-    alpha1, alphanumeric1, anychar, char, multispace0, multispace1, one_of,
-};
-use nom::combinator::{fail, map, peek, recognize, success, value};
+use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
+use nom::combinator::{fail, map, peek, recognize, value};
 use nom::multi::many0;
-use nom::sequence::{delimited, pair, preceded};
+use nom::sequence::{delimited, pair, tuple};
 use nom::IResult;
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(PartialEq, Clone)]
@@ -136,6 +135,8 @@ pub struct TokenInstance {
 }
 
 // TODO map errors into this format
+// see
+// https://github.com/Geal/nom/blob/main/examples/custom_error.rs
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char),
@@ -178,26 +179,28 @@ fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let peeker: IResult<&str, char> = peek(anychar)(input);
     match peeker {
         Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),
-        Ok((rest, c)) if c.is_ascii_alphabetic() => scan_identifier(rest),
-        Ok((rest, '"')) => scan_quoted_string(rest),
-        Ok((rest, '(')) => single_char_to_token(rest, Token::LeftParen),
-        Ok((rest, ')')) => single_char_to_token(rest, Token::RightParen),
-        Ok((rest, '{')) => single_char_to_token(rest, Token::LeftBrace),
-        Ok((rest, '}')) => single_char_to_token(rest, Token::RightBrace),
-        Ok((rest, ',')) => single_char_to_token(rest, Token::Comma),
-        Ok((rest, '.')) => single_char_to_token(rest, Token::Dot),
-        Ok((rest, '-')) => single_char_to_token(rest, Token::Minus),
-        Ok((rest, '+')) => single_char_to_token(rest, Token::Plus),
-        Ok((rest, ';')) => single_char_to_token(rest, Token::Semicolon),
-        Ok((rest, '*')) => single_char_to_token(rest, Token::Star),
+        Ok((rest, '(')) => scan_single(rest, Token::LeftParen),
+        Ok((rest, ')')) => scan_single(rest, Token::RightParen),
+        Ok((rest, '{')) => scan_single(rest, Token::LeftBrace),
+        Ok((rest, '}')) => scan_single(rest, Token::RightBrace),
+        Ok((rest, ',')) => scan_single(rest, Token::Comma),
+        Ok((rest, '.')) => scan_single(rest, Token::Dot),
+        Ok((rest, '-')) => scan_single(rest, Token::Minus),
+        Ok((rest, '+')) => scan_single(rest, Token::Plus),
+        Ok((rest, ';')) => scan_single(rest, Token::Semicolon),
+        Ok((rest, '*')) => scan_single(rest, Token::Star),
         Ok((rest, '=')) => scan_single_or_double(rest, '=', '=', Token::Equal, Token::EqualEqual),
         Ok((rest, '!')) => scan_single_or_double(rest, '!', '=', Token::Bang, Token::BangEqual),
-        Ok((rest, '>')) => scan_single_or_double(rest, '>', '=', Token::Greater, Token::GreaterEqual),
+        Ok((rest, '>')) => {
+            scan_single_or_double(rest, '>', '=', Token::Greater, Token::GreaterEqual)
+        }
         Ok((rest, '<')) => scan_single_or_double(rest, '<', '=', Token::Less, Token::LessEqual),
-        // TODO slash or comment
-        // TODO numbers
-        Ok((rest, w)) => {
-            println!("unknown {:?} {:?}", rest, w);
+        Ok((rest, '/')) => scan_slash_or_comment(rest),
+        Ok((rest, c)) if c.is_ascii_alphabetic() => scan_identifier_or_keyword(rest),
+        Ok((rest, '"')) => scan_quoted_string(rest),
+        Ok((rest, c)) if c.is_ascii_digit() => scan_number(rest),
+        Ok((rest, unknown)) => {
+            println!("unknown {:?} {:?}", rest, unknown);
             fail(rest)
         }
         Err(err) => {
@@ -208,11 +211,22 @@ fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
 }
 
 // Single character symbols like *
-fn single_char_to_token(input: &str, token: Token) -> IResult<&str, Option<TokenInstance>> {
+fn scan_single(input: &str, token: Token) -> IResult<&str, Option<TokenInstance>> {
     map(anychar, |c| {
         Some(TokenInstance {
             token_type: token.clone(),
             lexeme: c.to_string(),
+        })
+    })(input)
+}
+
+fn scan_number(input: &str) -> IResult<&str, Option<TokenInstance>> {
+    let fractional = recognize(tuple((digit1, tag("."), digit1)));
+    map(alt((fractional, digit1)), |s: &str| {
+        let number = s.parse::<f64>().unwrap();
+        Some(TokenInstance {
+            token_type: Token::Number(number),
+            lexeme: s.to_string(),
         })
     })(input)
 }
@@ -235,7 +249,6 @@ fn scan_single_or_double(
                     lexeme: m.to_string(),
                 })
             } else {
-                println!("m {:?}", m);
                 Some(TokenInstance {
                     token_type: single_token.clone(),
                     lexeme: m.to_string(),
@@ -247,28 +260,35 @@ fn scan_single_or_double(
 }
 
 // Skip "//" to end of line
-pub fn scan_skip_eol_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
+pub fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
     value(None, pair(tag("//"), is_not("\n\r")))(input)
 }
 
 // Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
-fn scan_identifier(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let ident = recognize(pair(
         alpha1,
         many0(alt((alphanumeric1, tag("-"), tag("_")))),
     ));
     map(ident, |s: &str| {
-        Some(TokenInstance {
-            token_type: Token::Identifier(s.to_string()),
-            lexeme: s.to_string(),
-        })
+        if let Some(keyword_token) = KEY_WORDS.get(s) {
+            Some(TokenInstance {
+                token_type: keyword_token.clone(), 
+                lexeme: s.to_string(),
+            })
+        } else {
+            Some(TokenInstance {
+                token_type: Token::Identifier(s.to_string()),
+                lexeme: s.to_string(),
+            })
+        }
     })(input)
 }
 
 // String
 fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
     // TODO is there a better way to handle empty quoted string?
-    let quoted_string = alt((tag("\"\""), delimited(char('"'), is_not("\""), char('"'))));
+    let quoted_string = alt((value("", tag("\"\"")), delimited(char('"'), is_not("\""), char('"'))));
     let mut mr = map(quoted_string, |s: &str| {
         Some(TokenInstance {
             token_type: Token::String(s.to_string()),
@@ -276,6 +296,29 @@ fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
         })
     });
     mr(input)
+}
+
+lazy_static! {
+    static ref KEY_WORDS: HashMap<String, Token> = {
+        let mut m = HashMap::new();
+        m.insert("and".to_string(), Token::And);
+        m.insert("class".to_string(), Token::Class);
+        m.insert("else".to_string(), Token::Else);
+        m.insert("false".to_string(), Token::False);
+        m.insert("fun".to_string(), Token::Fun);
+        m.insert("for".to_string(), Token::For);
+        m.insert("if".to_string(), Token::If);
+        m.insert("nil".to_string(), Token::Nil);
+        m.insert("or".to_string(), Token::Or);
+        m.insert("print".to_string(), Token::Print);
+        m.insert("return".to_string(), Token::Return);
+        m.insert("super".to_string(), Token::Super);
+        m.insert("this".to_string(), Token::This);
+        m.insert("true".to_string(), Token::True);
+        m.insert("var".to_string(), Token::Var);
+        m.insert("while".to_string(), Token::While);
+        m
+    };
 }
 
 #[cfg(test)]

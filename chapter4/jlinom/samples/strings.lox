@@ -1,4 +1,6 @@
-alpha + "hello";
-beta } "";
-c - "end";
-ddd { "pop";
+""
+"string"
+
+// expect: STRING "" 
+// expect: STRING "string" string
+// expect: EOF  null

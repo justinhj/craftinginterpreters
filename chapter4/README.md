@@ -119,9 +119,47 @@ alpha
   PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
 ```
 
-## Critique
+## Critique of jli - my first effort
 
-Some of the code is horrible in that it is more complex than it needs to be. This mostly comes from me sticking to using a character iterator for the parsing and otherwise staying close to the book code. I should really have implemented the advance, peek functionality in the book. A better approach would be to swap out my code for a parser combinator libary like [nom](https://docs.rs/nom/latest/nom/)
+Some of the code is horrible in that it is more complex than it needs to be. This mostly comes from me sticking to using a character iterator for the parsing and otherwise staying close to the book code. I should really have implemented the advance, peek functionality in the book. 
+
+Notes on making it more like the book...
+
+lexemes are the raw text of compilation, for example they still include the quotes of quoted strings.
+
+scanner has some variables to track state 
+start, current and line
+
+isAtEnd returns current >= source length
+
+advance - returns the next character with consuming. current += 1
+
+addToken just adds to the array list of tokens (helper function)
+
+match - this is a conditional peek, see if the character is next and if it is, eat it
+returns boolean
+used for the single or double types 
+
+at any point you can use start (the start of the lexeme being scanned) and current
+start is reset to current when you finish the current call to scantoken
+
+digits ...
+
+while peek isdigit advance
+if peek is . and peek next isdigit
+  advance
+end
+this safely gobbles all the digits 
+
+ok reimplemeted jli version with these changes and it's a lot nicer
+
+## Critique of jlinom - second effort using nom
+
+Using the nom parser combinator library really cleaned things up
+
+[nom](https://github.com/Geal/nom) 
+
+Need to implement error location
 
 ## Testing
 

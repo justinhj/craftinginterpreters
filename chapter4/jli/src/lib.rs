@@ -134,85 +134,117 @@ pub enum ScanError {
     EndOfInput,
 }
 
+#[derive(Debug)]
 struct ScanState<'a> {
     line: usize,
-    position: usize,
     tokens: Vec<TokenInstance>,
     source: &'a str,
+    start: usize,
+    current: usize,
 }
 
 fn begin_scan(source: &str) -> ScanState {
     ScanState {
-        line: 0,
-        position: 0,
+        line: 1,
         tokens: vec![],
         source,
+        start: 0,
+        current: 0,
     }
 }
 
 fn is_scan_done(state: &ScanState) -> bool {
-    state.source.is_empty()
+    if state.current == state.source.len() {
+        true
+    } else {
+        false
+    }
+}
+
+fn peek(state: &ScanState) -> char {
+    if is_scan_done(&state) {
+        '\0'
+    } else {
+        state.source.chars().nth(state.current).unwrap()
+    }
+}
+
+fn peek_next(state: &ScanState) -> char {
+    if state.current + 1 >= state.source.len() {
+        '\0'
+    } else {
+        state.source.chars().nth(state.current + 1).unwrap()
+    }
+}
+
+fn advance(state: &mut ScanState) -> char {
+    let c = state.source.chars().nth(state.current);
+    state.current += 1;
+    c.unwrap()
+}
+
+fn match_next(n: char, state: &mut ScanState) -> bool {
+    match state.source.chars().nth(state.current) {
+        Some(d) if n == d => {
+            state.current += 1;
+            true
+        },
+        _ => false
+    }
 }
 
 fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
-    if let Some(next_char) = state.source.chars().nth(0) {
-        match next_char {
-            // Skip whitespace, for it is not signicant, and handle line counting
-            '\t' | ' ' | '\r' => skip_character(state),
-            '\n' => skip_character_new_line(state),
-            // Single characters
-            '(' => single_character_scanner(next_char, Token::LeftParen, state),
-            ')' => single_character_scanner(next_char, Token::RightParen, state),
-            '{' => single_character_scanner(next_char, Token::LeftBrace, state),
-            '}' => single_character_scanner(next_char, Token::RightBrace, state),
-            ',' => single_character_scanner(next_char, Token::Comma, state),
-            '.' => single_character_scanner(next_char, Token::Dot, state),
-            '-' => single_character_scanner(next_char, Token::Minus, state),
-            '+' => single_character_scanner(next_char, Token::Plus, state),
-            ';' => single_character_scanner(next_char, Token::Semicolon, state),
-            '*' => single_character_scanner(next_char, Token::Star, state),
+    let next_char = advance(state);
+    match next_char {
+        // Skip whitespace, for it is not signicant, and handle line counting
+        '\t' | ' ' | '\r' => Ok(()),
+        '\n' => skip_character_new_line(state),
+        // Single characters
+        '(' => single_character_scanner(next_char, Token::LeftParen, state),
+        ')' => single_character_scanner(next_char, Token::RightParen, state),
+        '{' => single_character_scanner(next_char, Token::LeftBrace, state),
+        '}' => single_character_scanner(next_char, Token::RightBrace, state),
+        ',' => single_character_scanner(next_char, Token::Comma, state),
+        '.' => single_character_scanner(next_char, Token::Dot, state),
+        '-' => single_character_scanner(next_char, Token::Minus, state),
+        '+' => single_character_scanner(next_char, Token::Plus, state),
+        ';' => single_character_scanner(next_char, Token::Semicolon, state),
+        '*' => single_character_scanner(next_char, Token::Star, state),
 
-            // Single OR double characters
-            '=' => single_or_double_character_scanner(
-                next_char,
-                '=',
-                Token::Equal,
-                Token::EqualEqual,
-                state,
-            ),
-            '!' => single_or_double_character_scanner(
-                next_char,
-                '=',
-                Token::Equal,
-                Token::BangEqual,
-                state,
-            ),
-            '>' => single_or_double_character_scanner(
-                next_char,
-                '=',
-                Token::Greater,
-                Token::GreaterEqual,
-                state,
-            ),
-            '<' => single_or_double_character_scanner(
-                next_char,
-                '=',
-                Token::Less,
-                Token::LessEqual,
-                state,
-            ),
-            // Slash or comment
-            '/' => slash_or_comment_scanner(state),
-            // Numbers
-            m if m.is_ascii_digit() => number_scanner(state),
-            // Identifiers
-            m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
-            // String literals
-            '"' => string_scanner(state),
-            _ => return Err(ScanError::UnexpectedChar(next_char)),
+        // Single OR double characters
+        '=' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Equal,
+            Token::EqualEqual,
+            state,
+        ),
+        '!' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Equal,
+            Token::BangEqual,
+            state,
+        ),
+        '>' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Greater,
+            Token::GreaterEqual,
+            state,
+        ),
+        '<' => {
+            single_or_double_character_scanner(next_char, '=', Token::Less, Token::LessEqual, state)
         }
-    } else {
-        Err(ScanError::EndOfInput)
+        // Slash or comment
+        '/' => slash_or_comment_scanner(state),
+        // Numbers
+        m if m.is_ascii_digit() => number_scanner(state),
+        // Identifiers
+        m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
+        // String literals
+        '"' => string_scanner(state),
+        _ => return Err(ScanError::UnexpectedChar(next_char)),
     }
 }
 
@@ -240,38 +272,40 @@ lazy_static! {
 }
 
 fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-    state.position = state.position + 1;
-    state.source = &state.source[1..];
-    if let Some(end_quote_pos) = state.source.find(|n| n == '"') {
-        let word = &state.source[..end_quote_pos];
+    while peek(state) != '"' && !is_scan_done(state) {
+        if peek(state) == '\n' {
+            state.line = state.line + 1;
+        }
+        advance(state);
+    }
+
+    if is_scan_done(state) {
+        Err(ScanError::UnterminatedString(format!(
+            "Unterminated string {:?}",
+            state.source
+        )))
+    } else {
+        advance(state);
+        let word = &state.source[state.start+1..state.current-1];
         state.tokens.push(TokenInstance {
             token_type: Token::String(word.to_string()),
             lexeme: word.to_string(),
             line: state.line,
         });
-        state.position = state.position + end_quote_pos + 1;
-        state.source = &state.source[end_quote_pos + 1..];
         Ok(())
-    } else {
-        Err(ScanError::UnterminatedString(format!(
-            "Unterminated string {:?}",
-            state.source
-        )))
     }
 }
 
 fn identifier_or_keyword_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-    let word = if let Some(end_pos) = state
-        .source
-        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
-    {
-        &state.source[..end_pos]
-    } else {
-        &state.source[..]
-    };
-
-    state.position = state.position + word.len();
-    state.source = &state.source[word.len()..];
+    loop {
+        let peeked = peek(state);
+        if peeked.is_ascii_alphanumeric() || peeked == '_' {
+            advance(state);
+        } else {
+            break;
+        }
+    }
+    let word = &state.source[state.start..state.current];
     if let Some(keyword_token) = KEY_WORDS.get(word) {
         state.tokens.push(TokenInstance {
             token_type: keyword_token.clone(),
@@ -288,45 +322,19 @@ fn identifier_or_keyword_scanner(state: &mut ScanState) -> Result<(), ScanError>
     Ok(())
 }
 
-// This is truly awful code. Could be greatly simplified by doing the parsing a lot more
-// like the book does but, well, it's too late now. A better solution would be to rewrite
-// using a Rust parsing libary anyway.
 fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-    let number_str = if let Some(digit_end) = state.source.find(|c: char| !c.is_ascii_digit()) {
-        let digit_end_char = state.source.chars().nth(digit_end);
-        let digit_end_next_char = state.source.chars().nth(digit_end + 1);
+    while peek(state).is_ascii_digit() {
+        advance(state);
+    }
 
-        match (digit_end_char, digit_end_next_char) {
-            (Some('.'), Some(next)) if next.is_ascii_digit() => {
-                if let Some(next_digit_end) =
-                    &state.source[digit_end + 1..].find(|c: char| !c.is_ascii_digit())
-                {
-                    let r = &state.source[..digit_end + 1 + *next_digit_end];
-                    state.position = state.position + digit_end + 1 + *next_digit_end;
-                    state.source = &state.source[digit_end + 1 + *next_digit_end..];
-                    r
-                } else {
-                    let r = &state.source[..digit_end + 1];
-                    state.position = state.position + digit_end + 1;
-                    state.source = &state.source[digit_end + 1..];
-                    r
-                }
-            }
-            (Some(_), _) => {
-                let r = &state.source[..digit_end];
-                state.position = state.position + digit_end;
-                state.source = &state.source[digit_end..];
-                r
-            }
-            (_, _) => panic!("Unexpected"),
+    if peek(state) == '.' && peek_next(state).is_ascii_digit() {
+        advance(state);
+        while peek(state).is_ascii_digit() {
+            advance(state);
         }
-    } else {
-        let r = &state.source[..];
-        state.position = state.position + state.source.len();
-        state.source = "";
-        r
-    };
+    }
 
+    let number_str = &state.source[state.start..state.current];
     match str::parse::<f64>(&number_str) {
         Ok(value) => {
             state.tokens.push(TokenInstance {
@@ -341,22 +349,15 @@ fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
 }
 
 fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-    let next_char = state.source.chars().nth(1);
-    if matches!(next_char, Some(next_char) if next_char == '/') {
-        if let Some(new_line_pos) = state.source.find(|n| n == '\n') {
-            state.position = state.position + new_line_pos;
-            state.source = &state.source[new_line_pos..];
-        } else {
-            state.position = state.position + state.source.len();
-            state.source = "";
-        }
-    } else {
-        state.position = state.position + 1;
-        state.source = &state.source[1..];
+   if match_next('/', state) {
+       while peek(state) != '\n' && !is_scan_done(state) {
+           advance(state);
+       }
+   } else {
         state.tokens.push(TokenInstance {
             token_type: Token::Slash,
             lexeme: '/'.to_string(),
-            line: state.line,
+            line: state.line
         })
     }
     Ok(())
@@ -364,8 +365,6 @@ fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
 
 // Handle single-character
 fn single_character_scanner(c: char, token: Token, state: &mut ScanState) -> Result<(), ScanError> {
-    state.position = state.position + 1;
-    state.source = &state.source[1..];
     state.tokens.push(TokenInstance {
         token_type: token,
         lexeme: c.to_string(),
@@ -381,10 +380,7 @@ fn single_or_double_character_scanner(
     double_token: Token,
     state: &mut ScanState,
 ) -> Result<(), ScanError> {
-    let next_char = state.source.chars().nth(1);
-    if matches!(next_char, Some(next_char) if next_char == double_char) {
-        state.position = state.position + 2;
-        state.source = &state.source[2..];
+    if match_next(double_char, state) {
         let c_arr = [c, double_char];
         state.tokens.push(TokenInstance {
             token_type: double_token,
@@ -392,8 +388,6 @@ fn single_or_double_character_scanner(
             line: state.line,
         })
     } else {
-        state.position = state.position + 1;
-        state.source = &state.source[1..];
         state.tokens.push(TokenInstance {
             token_type: single_token,
             lexeme: c.to_string(),
@@ -404,21 +398,14 @@ fn single_or_double_character_scanner(
 }
 
 fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
-    state.position = state.position + 1;
-    state.source = &state.source[1..];
     state.line = state.line + 1;
-    Ok(())
-}
-
-fn skip_character(state: &mut ScanState) -> Result<(), ScanError> {
-    state.position = state.position + 1;
-    state.source = &state.source[1..];
     Ok(())
 }
 
 pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
     let mut state: ScanState = begin_scan(input);
     while !is_scan_done(&state) {
+        state.start = state.current;
         scan_next(&mut state)?;
     }
     state.tokens.push(TokenInstance {
@@ -442,17 +429,17 @@ mod tests {
             TokenInstance {
                 token_type: Token::Equal,
                 lexeme: "=".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 0,
+                line: 1,
             },
         ];
 
@@ -467,37 +454,37 @@ mod tests {
             TokenInstance {
                 token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Equal,
                 lexeme: "=".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(1.0),
                 lexeme: "1".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(2.0),
                 lexeme: "2".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Semicolon,
                 lexeme: ";".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 0,
+                line: 1,
             },
         ];
 
@@ -512,37 +499,37 @@ mod tests {
             TokenInstance {
                 token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Equal,
                 lexeme: "=".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(1.0),
                 lexeme: "1".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(2.0),
                 lexeme: "2".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Semicolon,
                 lexeme: ";".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 0,
+                line: 1,
             },
         ];
 
@@ -557,32 +544,32 @@ mod tests {
             TokenInstance {
                 token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Equal,
                 lexeme: "=".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Identifier("b".to_string()),
                 lexeme: "b".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Identifier("c".to_string()),
                 lexeme: "c".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 1,
+                line: 2,
             },
         ];
 
@@ -600,77 +587,77 @@ mod tests {
             TokenInstance {
                 token_type: Token::Fun,
                 lexeme: "fun".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Identifier("addPair".to_string()),
                 lexeme: "addPair".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::LeftParen,
                 lexeme: "(".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Comma,
                 lexeme: ",".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Identifier("b".to_string()),
                 lexeme: "b".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::RightParen,
                 lexeme: ")".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::LeftBrace,
                 lexeme: "{".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Return,
                 lexeme: "return".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Identifier("a".to_string()),
                 lexeme: "a".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Plus,
                 lexeme: "+".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Identifier("b".to_string()),
                 lexeme: "b".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::Semicolon,
                 lexeme: ";".to_string(),
-                line: 1,
+                line: 2,
             },
             TokenInstance {
                 token_type: Token::RightBrace,
                 lexeme: "}".to_string(),
-                line: 2,
+                line: 3,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 2,
+                line: 3,
             },
         ];
 
@@ -685,32 +672,32 @@ mod tests {
             TokenInstance {
                 token_type: Token::Number(120.0),
                 lexeme: "120".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Comma,
                 lexeme: ",".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(120.5),
                 lexeme: "120.5".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Comma,
                 lexeme: ",".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Number(121.0),
                 lexeme: "121".to_string(),
-                line: 0,
+                line: 1,
             },
             TokenInstance {
                 token_type: Token::Eof,
                 lexeme: "".to_string(),
-                line: 0,
+                line: 1,
             },
         ];
 

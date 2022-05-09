@@ -23,16 +23,13 @@ fn main() {
         loop {
             let readline = rl.readline(">> ");
             match readline {
-                Ok(line) => {
-
-                    match jli::scan(&line) {
-                        Ok(tokens) => {
-                            rl.add_history_entry(line.as_str());
-                            tokens.iter().for_each(|token| println!("{:?}", token))
-                        },
-                        Err(err) => println!("Error {:?}", err),
+                Ok(line) => match jli::scan(&line) {
+                    Ok(tokens) => {
+                        rl.add_history_entry(line.as_str());
+                        tokens.iter().for_each(|token| println!("{:?}", token))
                     }
-                }
+                    Err(err) => println!("Error {:?}", err),
+                },
                 Err(ReadlineError::Interrupted) => {
                     println!("CTRL-C");
                     break;

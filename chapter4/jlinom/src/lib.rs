@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use nom::branch::alt;
-use nom::bytes::complete::{is_not,tag,take_until};
+use nom::bytes::complete::{is_not, tag, take_till, take_until};
 use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
 use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;
@@ -258,28 +258,58 @@ fn scan_single_or_double(
     parser(input)
 }
 
-// Should be called after /* is detected and consumed...
-fn scan_slash_star_comment(input: &str)  -> IResult<&str, Option<TokenInstance>> {
-    value(None, 
-          pair(
-              take_until("*/"),
-              tag("*/")))(input)
+// Should be called after /* consumed
+//   now find */ or /*
+//   if you find /* call recursively
+//    if you find */ you are done
+fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
+    let mut open = 1;
+    let mut remainder = input;
+    loop {
+        let (new_remainder,_) = take_till(|c| c == '*' || c == '/')(remainder)?;
+        if new_remainder.len() == 0 {
+            // TODO this should return unterminated comment error
+            return fail(new_remainder)
+        }
+        remainder = new_remainder;
+        let next_close: IResult<&str, &str> = tag("*/")(remainder);
+        match next_close {
+            Ok((new_remainder,_)) => {
+                open = open - 1;
+                if open == 0 {
+                    return Ok((new_remainder, None));
+                } else {
+                    remainder = new_remainder;
+                }
+            },
+            Err(_) => ()
+        }
+        let next_open: IResult<&str, &str> = tag("/*")(remainder);
+        match next_open {
+            Ok((new_remainder,_)) => {
+                open = open + 1;
+                remainder = new_remainder;
+            },
+            Err(_) => ()
+        }
+    }
 }
 
 // Skip "//" to end of line
 fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let r: IResult<&str,&str> = peek(tag("//"))(input);
+    let r: IResult<&str, &str> = peek(tag("//"))(input);
     match r {
-        Ok((rest,_)) => value(None, pair(tag("//"), alt((eof, is_not("\n\r")))))(rest),
+        Ok((rest, _)) => value(None, pair(tag("//"), alt((eof, is_not("\n\r")))))(rest),
         Err(_) => {
-            let r2: IResult<&str,&str> = peek(tag("/*"))(input);
+            let r2: IResult<&str, &str> = tag("/*")(input);
             match r2 {
-                Ok((rest,_)) => scan_slash_star_comment(rest),
-                Err(_) => {
-                    map(tag("/"),|c: &str| {
-                        Some(TokenInstance{token_type:Token::Slash, lexeme:c.to_string()})
-                    })(input)
-                }
+                Ok((rest, _)) => scan_slash_star_comment(rest),
+                Err(_) => map(tag("/"), |c: &str| {
+                    Some(TokenInstance {
+                        token_type: Token::Slash,
+                        lexeme: c.to_string(),
+                    })
+                })(input),
             }
         }
     }
@@ -288,13 +318,13 @@ fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
 // Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
 fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let ident = recognize(pair(
-        alt((alpha1,tag("_"))),
+        alt((alpha1, tag("_"))),
         many0(alt((alphanumeric1, tag("-"), tag("_")))),
     ));
     map(ident, |s: &str| {
         if let Some(keyword_token) = KEY_WORDS.get(s) {
             Some(TokenInstance {
-                token_type: keyword_token.clone(), 
+                token_type: keyword_token.clone(),
                 lexeme: s.to_string(),
             })
         } else {
@@ -309,7 +339,10 @@ fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance
 // String
 fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
     // TODO is there a better way to handle empty quoted string?
-    let quoted_string = alt((value("", tag("\"\"")), delimited(char('"'), is_not("\""), char('"'))));
+    let quoted_string = alt((
+        value("", tag("\"\"")),
+        delimited(char('"'), is_not("\""), char('"')),
+    ));
     let mut mr = map(quoted_string, |s: &str| {
         Some(TokenInstance {
             token_type: Token::String(s.to_string()),

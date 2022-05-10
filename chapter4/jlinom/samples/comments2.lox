@@ -1,0 +1,5 @@
+print /* identity(addPair)(1, 2);
+print identity(addPair)(1, 2);
+print identity(addPair)(1, 2);
+print identity(addPair)(1, 2);
+print */ identity(addPair)(1, 2);

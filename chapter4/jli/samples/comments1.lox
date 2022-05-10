@@ -1,0 +1,9 @@
+// Full line eol comment
+fun addPair(a, b) {
+  return a + b; // eol comment
+}
+ 
+fun identity(a) {
+  return a;
+}
+print identity(addPair)(1, 2);

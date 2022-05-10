@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
 use nom::branch::alt;
-use nom::bytes::complete::is_not;
-use nom::bytes::complete::tag;
+use nom::bytes::complete::{is_not,tag,take_until};
 use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
 use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;
@@ -259,14 +258,30 @@ fn scan_single_or_double(
     parser(input)
 }
 
+// Should be called after /* is detected and consumed...
+fn scan_slash_star_comment(input: &str)  -> IResult<&str, Option<TokenInstance>> {
+    value(None, 
+          pair(
+              take_until("*/"),
+              tag("*/")))(input)
+}
+
 // Skip "//" to end of line
-pub fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let r: IResult<&str,&str> = peek(tag("//"))(input);
     match r {
         Ok((rest,_)) => value(None, pair(tag("//"), alt((eof, is_not("\n\r")))))(rest),
-        Err(_) => map(tag("/"),|c: &str| {
-            Some(TokenInstance{token_type:Token::Slash, lexeme:c.to_string()})
-        })(input)
+        Err(_) => {
+            let r2: IResult<&str,&str> = peek(tag("/*"))(input);
+            match r2 {
+                Ok((rest,_)) => scan_slash_star_comment(rest),
+                Err(_) => {
+                    map(tag("/"),|c: &str| {
+                        Some(TokenInstance{token_type:Token::Slash, lexeme:c.to_string()})
+                    })(input)
+                }
+            }
+        }
     }
 }
 

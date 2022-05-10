@@ -9,6 +9,10 @@ use nom::sequence::{delimited, pair, tuple};
 use nom::IResult;
 use std::collections::HashMap;
 use std::fmt;
+use nom_locate::{position, LocatedSpan};
+use nom::error::ParseError;
+
+type Span<'a> = LocatedSpan<&'a str>;
 
 #[derive(PartialEq, Clone)]
 pub enum Token {
@@ -78,7 +82,7 @@ fn num_format(num: f64) -> String {
 }
 // Note this is the Debug implementation for TokenInstance, but it may be valuable to create a
 // Display instance too.
-impl fmt::Debug for TokenInstance {
+impl <'a> fmt::Debug for TokenInstance<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {
             Token::Identifier(string) => write!(f, "IDENTIFIER {} null", string),
@@ -127,11 +131,10 @@ impl fmt::Debug for TokenInstance {
 // This acts as a wrapper for tokens to enable addition information such as lexeme and position
 // info
 #[derive(PartialEq, Clone)]
-pub struct TokenInstance {
+pub struct TokenInstance<'a> {
     token_type: Token,
     lexeme: String,
-    // line: usize, // TODO can we do state?
-    // yes with https://github.com/fflorent/nom_locate
+    position: Span<'a>
 }
 
 // TODO map errors into this format
@@ -147,7 +150,7 @@ pub enum ScanError {
 }
 
 // Scan the input string returning either a vector of tokens or the first error
-pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+pub fn scan(input: Span) -> Result<Vec<TokenInstance>, ScanError> {
     // let result = many0(scan_token)(input);
     let mut tokens: Vec<TokenInstance> = vec![];
     let mut rest = input;
@@ -170,12 +173,13 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
         TokenInstance {
             token_type: Token::Eof,
             lexeme: "".to_string(),
+            position: position(rest).unwrap().1,
         },
     );
     Ok(tokens)
 }
 
-fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_token(input: Span) -> IResult<Span, Option<TokenInstance>> {
     let peeker: IResult<&str, char> = peek(anychar)(input);
     match peeker {
         Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),

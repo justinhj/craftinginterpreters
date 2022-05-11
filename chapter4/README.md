@@ -1,4 +1,17 @@
 # Lox Scanner
+## Chapter 4 challenges
+1. Python and Haskell are not regular; what does that mean?
+Regular languages can be described by regular expressions.
+
+This seems interesting:
+[Monadic second-order logic](https://en.wikipedia.org/wiki/Monadic_second-order_logic)
+
+Python and Haskell both have whitespace sensitive syntax which means
+keeping track of state.
+
+[Reddit/the lexical grammars of python and haskell are](https://www.reddit.com/r/compsci/comments/kkzn3r/the_lexical_grammars_of_python_and_haskell_are/)
+
+"each lexical element can contain multiple derivations"
 
 ## Testing the book version (Java)
 

@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, tag, take_till, take_until};
+use nom::bytes::complete::{is_not, tag, take_till};
 use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
 use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;

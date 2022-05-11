@@ -1,0 +1,3 @@
+// Test scripts with eol comments
+a = b; // Ignore the rest
+c = d;

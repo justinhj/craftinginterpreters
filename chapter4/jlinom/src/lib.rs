@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_till};
-use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1};
+use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1, not_line_ending};
 use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, tuple};
@@ -299,7 +299,7 @@ fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> 
 fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
     let r: IResult<&str, &str> = peek(tag("//"))(input);
     match r {
-        Ok((rest, _)) => value(None, pair(tag("//"), alt((eof, is_not("\n\r")))))(rest),
+        Ok((rest, _)) => value(None, pair(tag("//"), alt((eof, not_line_ending))))(rest),
         Err(_) => {
             let r2: IResult<&str, &str> = tag("/*")(input);
             match r2 {

@@ -13,6 +13,9 @@ keeping track of state.
 
 "each lexical element can contain multiple derivations"
 
+4. Implement /* style comments including nesting.
+In jlinom I have implemented this.
+
 ## Testing the book version (Java)
 
 ```

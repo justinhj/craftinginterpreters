@@ -1,7 +1,9 @@
 use lazy_static::lazy_static;
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_till};
-use nom::character::complete::{alpha1, alphanumeric1, anychar, char, digit1, multispace1, not_line_ending};
+use nom::character::complete::{
+    alpha1, alphanumeric1, anychar, char, digit1, multispace1, not_line_ending,
+};
 use nom::combinator::{eof, fail, map, peek, recognize, value};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, tuple};
@@ -65,7 +67,7 @@ pub enum Token {
 //   the fractional part, and beyond that as many, but only as many, more
 //   digits as are needed to uniquely distinguish the argument value from
 //   adjacent values of type {@code double}.
-fn num_format(num: f64) -> String {
+pub fn num_format(num: f64) -> String {
     let s = format!("{:.3}", num);
     if let Some(non_zero_pos) = s.rfind(|c: char| c != '0') {
         let zero_count = s.len() - (non_zero_pos + 1);
@@ -75,8 +77,8 @@ fn num_format(num: f64) -> String {
         panic!("Unexpected number format {:?}", s);
     }
 }
-// Note this is the Debug implementation for TokenInstance, but it may be valuable to create a
-// Display instance too.
+
+// Debug is written to pass the tests in the book rather for any specific purpose
 impl fmt::Debug for TokenInstance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {
@@ -119,6 +121,52 @@ impl fmt::Debug for TokenInstance {
             Token::While => write!(f, "WHILE while null"),
             Token::Slash => write!(f, "SLASH / null"),
             Token::Eof => write!(f, "EOF  null"),
+        }
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            Token::Identifier(string) => write!(f, "{}", string),
+            Token::Number(num) => write!(f, "{}", num_format(*num)),
+            Token::String(string) => write!(f, "\"{}\"", string),
+            Token::Equal => write!(f, "="),
+            Token::LeftParen => write!(f, "("),
+            Token::RightParen => write!(f, ")"),
+            Token::LeftBrace => write!(f, "{{"),
+            Token::RightBrace => write!(f, "}}"),
+            Token::Comma => write!(f, ","),
+            Token::Dot => write!(f, "."),
+            Token::Minus => write!(f, "-"),
+            Token::Plus => write!(f, "+"),
+            Token::Semicolon => write!(f, ";"),
+            Token::Star => write!(f, "*"),
+            Token::Bang => write!(f, "!"),
+            Token::BangEqual => write!(f, "!="),
+            Token::EqualEqual => write!(f, "=="),
+            Token::Greater => write!(f, ">"),
+            Token::GreaterEqual => write!(f, ">="),
+            Token::Less => write!(f, "<"),
+            Token::LessEqual => write!(f, "<="),
+            Token::And => write!(f, "and"),
+            Token::Class => write!(f, "class"),
+            Token::Else => write!(f, "else"),
+            Token::False => write!(f, "false"),
+            Token::Fun => write!(f, "fun"),
+            Token::For => write!(f, "f"),
+            Token::If => write!(f, "if"),
+            Token::Nil => write!(f, "nil"),
+            Token::Or => write!(f, "or"),
+            Token::Print => write!(f, "print"),
+            Token::Return => write!(f, "return"),
+            Token::Super => write!(f, "super"),
+            Token::This => write!(f, "this"),
+            Token::True => write!(f, "true"),
+            Token::Var => write!(f, "var"),
+            Token::While => write!(f, "while"),
+            Token::Slash => write!(f, "/"),
+            Token::Eof => write!(f, ""),
         }
     }
 }
@@ -266,31 +314,31 @@ fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> 
     let mut open = 1;
     let mut remainder = input;
     loop {
-        let (new_remainder,_) = take_till(|c| c == '*' || c == '/')(remainder)?;
+        let (new_remainder, _) = take_till(|c| c == '*' || c == '/')(remainder)?;
         if new_remainder.len() == 0 {
             // TODO this should return unterminated comment error
-            return fail(new_remainder)
+            return fail(new_remainder);
         }
         remainder = new_remainder;
         let next_close: IResult<&str, &str> = tag("*/")(remainder);
         match next_close {
-            Ok((new_remainder,_)) => {
+            Ok((new_remainder, _)) => {
                 open = open - 1;
                 if open == 0 {
                     return Ok((new_remainder, None));
                 } else {
                     remainder = new_remainder;
                 }
-            },
-            Err(_) => ()
+            }
+            Err(_) => (),
         }
         let next_open: IResult<&str, &str> = tag("/*")(remainder);
         match next_open {
-            Ok((new_remainder,_)) => {
+            Ok((new_remainder, _)) => {
                 open = open + 1;
                 remainder = new_remainder;
-            },
-            Err(_) => ()
+            }
+            Err(_) => (),
         }
     }
 }

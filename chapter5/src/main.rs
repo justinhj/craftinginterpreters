@@ -1,9 +1,9 @@
 // Lox code scanner using nom
+use rlox::scan::scan;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::env;
 use std::fs;
-use rlox::scan::scan;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();

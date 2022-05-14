@@ -30,5 +30,9 @@ Proposal is to make a struct and matching impl for each type of `visitor`. That 
 ## Grammar
 The idea of this chapter is to implement a grammar to parse the scanned program.
 
+## References
+How to parse custom types with Nom; an example.
 
-
+https://github.com/nickelc/jq/blob/master/src/token.rs
+https://github.com/nickelc/jq/blob/master/src/parser.rs
+https://github.com/jethrogb/rust-cexpr/blob/master/src/expr.rs

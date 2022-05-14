@@ -1,7 +1,9 @@
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 use nom:: {
-    IResult
+    IResult,
+    bytes::complete::take,
+    InputTake,
 };
 
 pub enum Literal {
@@ -48,9 +50,15 @@ impl Display for Literal {
 
 // Implement the expression parser
 
+// Not used yet
 #[derive(Debug)]
-pub enum ParseError {
-    Error,
+pub struct CustomError {
+    message: String,
+}
+
+struct ParseState<'a> {
+    source: &'a [TokenInstance],
+    position: usize,
 }
 
 // Grammar
@@ -67,7 +75,7 @@ fn parse_primary(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenInst
     todo!()
 }
 
-fn parse(input: &TokenInstance) -> Result<Vec<TokenInstance>, ParseError> {
+fn parse(input: &TokenInstance) -> Result<Vec<TokenInstance>, CustomError> {
     let tokens = parse_statements(input);
 
 
@@ -78,13 +86,25 @@ fn parse_statements(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenI
     todo!()
 }
 
+// impl InputTake for &[TokenInstance] {
+// }
+
+// fn parse_number<'a>(input: &mut ParseState) -> IResult<ParseState<'a>, Expr> {
+//     let (remainder, token_instance) = take(1usize)(input)?;
+//     // match token_instance.token_type {
+//     //    Token::Number(n) => Ok((remainder, Expr::Literal(Literal::Number(n)))),
+//     //    Err(err) => Err(err)
+//     // }
+//     Err(nom::Err::Error((remainder, nom::error::ErrorKind::Char)))
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_display_expression_kitchen_sink() {
-        let expr = Expr::Binary(
+        let expr: Expr = Expr::Binary(
             Box::new(Expr::Literal(Literal::Number(100.0))),
             Token::Plus,
             Box::new(Expr::Literal(Literal::Number(200.0))),

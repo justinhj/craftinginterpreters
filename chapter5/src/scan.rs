@@ -79,48 +79,48 @@ pub fn num_format(num: f64) -> String {
 }
 
 // Debug is written to pass the tests in the book rather for any specific purpose
-impl fmt::Debug for TokenInstance {
+impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.token_type {
-            Token::Identifier(string) => write!(f, "IDENTIFIER {} null", string),
-            Token::Number(num) => write!(f, "NUMBER {} {}", self.lexeme, num_format(*num)),
-            Token::String(string) => write!(f, "STRING \"{}\" {}", self.lexeme, string),
-            Token::Equal => write!(f, "EQUAL = null"),
-            Token::LeftParen => write!(f, "LEFT_PAREN ( null"),
-            Token::RightParen => write!(f, "RIGHT_PAREN ) null"),
-            Token::LeftBrace => write!(f, "LEFT_BRACE {{ null"),
-            Token::RightBrace => write!(f, "RIGHT_BRACE }} null"),
-            Token::Comma => write!(f, "COMMA , null"),
-            Token::Dot => write!(f, "DOT . null"),
-            Token::Minus => write!(f, "MINUS - null"),
-            Token::Plus => write!(f, "PLUS + null"),
-            Token::Semicolon => write!(f, "SEMICOLON ; null"),
-            Token::Star => write!(f, "STAR * null"),
-            Token::Bang => write!(f, "BANG ! null"),
-            Token::BangEqual => write!(f, "BANG_EQUAL != null"),
-            Token::EqualEqual => write!(f, "EQUAL_EQUAL == null"),
-            Token::Greater => write!(f, "GREATER > null"),
-            Token::GreaterEqual => write!(f, "GREATER_EQUAL >= null"),
-            Token::Less => write!(f, "LESS < null"),
-            Token::LessEqual => write!(f, "LESS_EQUAL <= null"),
-            Token::And => write!(f, "AND and null"),
-            Token::Class => write!(f, "CLASS class null"),
-            Token::Else => write!(f, "ELSE else null"),
-            Token::False => write!(f, "FALSE false null"),
-            Token::Fun => write!(f, "FUN fun null"),
-            Token::For => write!(f, "FOR for null"),
-            Token::If => write!(f, "IF if null"),
-            Token::Nil => write!(f, "NIL nil null"),
-            Token::Or => write!(f, "OR or null"),
-            Token::Print => write!(f, "PRINT print null"),
-            Token::Return => write!(f, "RETURN return null"),
-            Token::Super => write!(f, "SUPER super null"),
-            Token::This => write!(f, "THIS this null"),
-            Token::True => write!(f, "TRUE true null"),
-            Token::Var => write!(f, "VAR var null"),
-            Token::While => write!(f, "WHILE while null"),
-            Token::Slash => write!(f, "SLASH / null"),
-            Token::Eof => write!(f, "EOF  null"),
+        match &self {
+            Token::Identifier(string) => write!(f, "IDENTIFIER {}", string),
+            Token::Number(num) => write!(f, "NUMBER {}", num_format(*num)),
+            Token::String(string) => write!(f, "STRING \"{}\"", string),
+            Token::Equal => write!(f, "EQUAL ="),
+            Token::LeftParen => write!(f, "LEFT_PAREN ("),
+            Token::RightParen => write!(f, "RIGHT_PAREN )"),
+            Token::LeftBrace => write!(f, "LEFT_BRACE {{"),
+            Token::RightBrace => write!(f, "RIGHT_BRACE }}"),
+            Token::Comma => write!(f, "COMMA ,"),
+            Token::Dot => write!(f, "DOT ."),
+            Token::Minus => write!(f, "MINUS -"),
+            Token::Plus => write!(f, "PLUS +"),
+            Token::Semicolon => write!(f, "SEMICOLON ;"),
+            Token::Star => write!(f, "STAR *"),
+            Token::Bang => write!(f, "BANG !"),
+            Token::BangEqual => write!(f, "BANG_EQUAL !="),
+            Token::EqualEqual => write!(f, "EQUAL_EQUAL =="),
+            Token::Greater => write!(f, "GREATER >"),
+            Token::GreaterEqual => write!(f, "GREATER_EQUAL >="),
+            Token::Less => write!(f, "LESS <"),
+            Token::LessEqual => write!(f, "LESS_EQUAL <="),
+            Token::And => write!(f, "AND and"),
+            Token::Class => write!(f, "CLASS class"),
+            Token::Else => write!(f, "ELSE else"),
+            Token::False => write!(f, "FALSE false"),
+            Token::Fun => write!(f, "FUN fun"),
+            Token::For => write!(f, "FOR for"),
+            Token::If => write!(f, "IF if"),
+            Token::Nil => write!(f, "NIL nil"),
+            Token::Or => write!(f, "OR or"),
+            Token::Print => write!(f, "PRINT print"),
+            Token::Return => write!(f, "RETURN return"),
+            Token::Super => write!(f, "SUPER super"),
+            Token::This => write!(f, "THIS this"),
+            Token::True => write!(f, "TRUE true"),
+            Token::Var => write!(f, "VAR var"),
+            Token::While => write!(f, "WHILE while"),
+            Token::Slash => write!(f, "SLASH /"),
+            Token::Eof => write!(f, "EOF "),
         }
     }
 }
@@ -171,16 +171,6 @@ impl fmt::Display for Token {
     }
 }
 
-// This acts as a wrapper for tokens to enable addition information such as lexeme and position
-// info
-#[derive(PartialEq, Clone)]
-pub struct TokenInstance {
-    token_type: Token,
-    lexeme: String,
-    // line: usize, // TODO can we do state?
-    // yes with https://github.com/fflorent/nom_locate
-}
-
 // TODO map errors into this format
 // see
 // https://github.com/Geal/nom/blob/main/examples/custom_error.rs
@@ -194,9 +184,9 @@ pub enum ScanError {
 }
 
 // Scan the input string returning either a vector of tokens or the first error
-pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+pub fn scan(input: &str) -> Result<Vec<Token>, ScanError> {
     // let result = many0(scan_token)(input);
-    let mut tokens: Vec<TokenInstance> = vec![];
+    let mut tokens: Vec<Token> = vec![];
     let mut rest = input;
     while !rest.is_empty() {
         match scan_token(rest) {
@@ -212,17 +202,11 @@ pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
         }
     }
 
-    tokens.insert(
-        tokens.len(),
-        TokenInstance {
-            token_type: Token::Eof,
-            lexeme: "".to_string(),
-        },
-    );
+    tokens.push(Token::Eof);
     Ok(tokens)
 }
 
-fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_token(input: &str) -> IResult<&str, Option<Token>> {
     let peeker: IResult<&str, char> = peek(anychar)(input);
     match peeker {
         Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),
@@ -258,23 +242,15 @@ fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
 }
 
 // Single character symbols like *
-fn scan_single(input: &str, token: Token) -> IResult<&str, Option<TokenInstance>> {
-    map(anychar, |c| {
-        Some(TokenInstance {
-            token_type: token.clone(),
-            lexeme: c.to_string(),
-        })
-    })(input)
+fn scan_single(input: &str, token: Token) -> IResult<&str, Option<Token>> {
+    map(anychar, |c| Some(token.clone()))(input)
 }
 
-fn scan_number(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_number(input: &str) -> IResult<&str, Option<Token>> {
     let fractional = recognize(tuple((digit1, tag("."), digit1)));
     map(alt((fractional, digit1)), |s: &str| {
         let number = s.parse::<f64>().unwrap();
-        Some(TokenInstance {
-            token_type: Token::Number(number),
-            lexeme: s.to_string(),
-        })
+        Some(Token::Number(number))
     })(input)
 }
 
@@ -285,21 +261,15 @@ fn scan_single_or_double(
     double: char,
     single_token: Token,
     double_token: Token,
-) -> IResult<&str, Option<TokenInstance>> {
+) -> IResult<&str, Option<Token>> {
     let double_target: String = [single, double].iter().collect();
     let mut parser = map(
         alt((tag(&double_target[..]), tag(&double_target[0..1]))),
         |m: &str| {
             if m.len() == 2 {
-                Some(TokenInstance {
-                    token_type: double_token.clone(),
-                    lexeme: m.to_string(),
-                })
+                Some(double_token.clone())
             } else {
-                Some(TokenInstance {
-                    token_type: single_token.clone(),
-                    lexeme: m.to_string(),
-                })
+                Some(single_token.clone())
             }
         },
     );
@@ -310,7 +280,7 @@ fn scan_single_or_double(
 //   now find */ or /*
 //   if you find /* call recursively
 //    if you find */ you are done
-fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<Token>> {
     let mut open = 1;
     let mut remainder = input;
     loop {
@@ -344,7 +314,7 @@ fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> 
 }
 
 // Skip "//" to end of line
-fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<Token>> {
     let r: IResult<&str, &str> = peek(tag("//"))(input);
     match r {
         Ok((rest, _)) => value(None, pair(tag("//"), alt((eof, not_line_ending))))(rest),
@@ -353,10 +323,7 @@ fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
             match r2 {
                 Ok((rest, _)) => scan_slash_star_comment(rest),
                 Err(_) => map(tag("/"), |c: &str| {
-                    Some(TokenInstance {
-                        token_type: Token::Slash,
-                        lexeme: c.to_string(),
-                    })
+                    Some(Token::Slash)
                 })(input),
             }
         }
@@ -364,39 +331,28 @@ fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
 }
 
 // Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
-fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<Token>> {
     let ident = recognize(pair(
         alt((alpha1, tag("_"))),
         many0(alt((alphanumeric1, tag("-"), tag("_")))),
     ));
     map(ident, |s: &str| {
         if let Some(keyword_token) = KEY_WORDS.get(s) {
-            Some(TokenInstance {
-                token_type: keyword_token.clone(),
-                lexeme: s.to_string(),
-            })
+            Some(keyword_token.clone())
         } else {
-            Some(TokenInstance {
-                token_type: Token::Identifier(s.to_string()),
-                lexeme: s.to_string(),
-            })
+            Some(Token::Identifier(s.to_string()))
         }
     })(input)
 }
 
 // String
-fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
+fn scan_quoted_string(input: &str) -> IResult<&str, Option<Token>> {
     // TODO is there a better way to handle empty quoted string?
     let quoted_string = alt((
         value("", tag("\"\"")),
         delimited(char('"'), is_not("\""), char('"')),
     ));
-    let mut mr = map(quoted_string, |s: &str| {
-        Some(TokenInstance {
-            token_type: Token::String(s.to_string()),
-            lexeme: s.to_string(),
-        })
-    });
+    let mut mr = map(quoted_string, |s: &str| { Some(Token::String(s.to_string())) });
     mr(input)
 }
 
@@ -430,10 +386,7 @@ mod tests {
     #[test]
     fn test_scan_quoted_string() {
         let input = "\"Justin\"";
-        let token = TokenInstance {
-            token_type: Token::String("Justin".to_string()),
-            lexeme: "Justin".to_string(),
-        };
+        let token = Token::String("Justin".to_string());
         assert_eq!(Ok(("", Some(token))), scan_quoted_string(input));
     }
     #[test]

@@ -1,5 +1,6 @@
-use crate::scan::{num_format, Token, TokenInstance};
+use crate::scan::{num_format, Token};
 use std::fmt::Display;
+use nom::bytes::complete::take;
 use nom:: {
     IResult
 };
@@ -62,20 +63,30 @@ pub enum ParseError {
 // unary -> ( "!" | "-" ) unary | primary ;
 // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-fn parse_primary(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenInstance>> {
-    // alt((
-    todo!()
-}
-
-fn parse(input: &TokenInstance) -> Result<Vec<TokenInstance>, ParseError> {
+fn parse(input: &Token) -> Result<Vec<Token>, ParseError> {
     let tokens = parse_statements(input);
 
 
     todo!()
 }
 
-fn parse_statements(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenInstance>> {
+fn parse_statements(input: &Token) -> IResult<&Token, Vec<Token>> {
     todo!()
+}
+
+ 
+fn parse_primary(input: &Token) -> IResult<&Token, Vec<Token>> {
+    // alt((
+    // tag(Token::Number(_))
+    todo!()
+}
+
+fn parse_number<'a>(input: Vec<Token>) -> IResult<&'a Token, Expr> {
+    let (remainder, token) = take(1usize)(input)?;
+    match token {
+       Token::Number(n) => Ok((remainder, Expr::Literal(Literal::Number(n)))),
+       Err(err) => Err(err)
+    }
 }
 
 #[cfg(test)]

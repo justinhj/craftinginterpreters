@@ -27,3 +27,8 @@ Clearly by changing the visitor you could change from pretty print to condensed 
 ### In Rust
 Proposal is to make a struct and matching impl for each type of `visitor`. That way your core data type remains a simple enum with zero functionality and all the operations on it are encoded by a stateful struct and implementation of some useful operations.
 
+## Grammar
+The idea of this chapter is to implement a grammar to parse the scanned program.
+
+
+

@@ -1,5 +1,8 @@
-use crate::scan::{num_format, Token};
+use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
+use nom:: {
+    IResult
+};
 
 pub enum Literal {
     String(String),
@@ -41,6 +44,38 @@ impl Display for Literal {
             Literal::Nil => write!(f, "nil"),
         }
     }
+}
+
+// Implement the expression parser
+
+#[derive(Debug)]
+pub enum ParseError {
+    Error,
+}
+
+// Grammar
+// expression -> equality ;
+// equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+// comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+// term -> factor ( ( "-" | "+" ) ) factor )* ;
+// factor -> unary ( ( "/" | "*" ) ) unary )* ;
+// unary -> ( "!" | "-" ) unary | primary ;
+// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+
+fn parse_primary(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenInstance>> {
+    // alt((
+    todo!()
+}
+
+fn parse(input: &TokenInstance) -> Result<Vec<TokenInstance>, ParseError> {
+    let tokens = parse_statements(input);
+
+
+    todo!()
+}
+
+fn parse_statements(input: &TokenInstance) -> IResult<&TokenInstance, Vec<TokenInstance>> {
+    todo!()
 }
 
 #[cfg(test)]

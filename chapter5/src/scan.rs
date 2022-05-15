@@ -1,13 +1,6 @@
+// Scanner for Lox
+// Tools to turn a string of lox source into tokens
 use lazy_static::lazy_static;
-use nom::branch::alt;
-use nom::bytes::complete::{is_not, tag, take_till};
-use nom::character::complete::{
-    alpha1, alphanumeric1, anychar, char, digit1, multispace1, not_line_ending,
-};
-use nom::combinator::{eof, fail, map, peek, recognize, value};
-use nom::multi::many0;
-use nom::sequence::{delimited, pair, tuple};
-use nom::IResult;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -60,6 +53,13 @@ pub enum Token {
     Eof,
 }
 
+#[derive(PartialEq)]
+pub struct TokenInstance {
+    pub token_type: Token,
+    pub lexeme: String,
+    pub line: usize,
+}
+
 // We want to emulate the String format of Double in Java to make the tests pass
 // This is described in the Java source/documentation as:
 //   How many digits must be printed for the fractional part of
@@ -72,13 +72,14 @@ pub fn num_format(num: f64) -> String {
     if let Some(non_zero_pos) = s.rfind(|c: char| c != '0') {
         let zero_count = s.len() - (non_zero_pos + 1);
         let count = std::cmp::min(zero_count, 2);
-        s[0..s.len() - count].to_string()
+        return s[0..s.len() - count].to_string();
     } else {
         panic!("Unexpected number format {:?}", s);
     }
 }
 
-// Debug is written to pass the tests in the book rather for any specific purpose
+// Note this is the Debug implementation for TokenInstance, but it may be valuable to create a
+// Display instance too.
 impl fmt::Debug for TokenInstance {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.token_type {
@@ -171,233 +172,126 @@ impl fmt::Display for Token {
     }
 }
 
-// This acts as a wrapper for tokens to enable addition information such as lexeme and position
-// info
-#[derive(PartialEq, Clone)]
-pub struct TokenInstance {
-    token_type: Token,
-    lexeme: String,
-    // line: usize, // TODO can we do state?
-    // yes with https://github.com/fflorent/nom_locate
-}
-
-// TODO map errors into this format
-// see
-// https://github.com/Geal/nom/blob/main/examples/custom_error.rs
 #[derive(Debug)]
 pub enum ScanError {
     UnexpectedChar(char),
     NumberFormatError(String),
     UnterminatedString(String),
     EndOfInput,
-    Error,
 }
 
-// Scan the input string returning either a vector of tokens or the first error
-pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
-    // let result = many0(scan_token)(input);
-    let mut tokens: Vec<TokenInstance> = vec![];
-    let mut rest = input;
-    while !rest.is_empty() {
-        match scan_token(rest) {
-            Ok((new_rest, Some(token))) => {
-                tokens.insert(tokens.len(), token);
-                rest = new_rest;
-            }
-            Ok((new_rest, None)) => rest = new_rest,
-            Err(err) => {
-                println!("error {:?}", err);
-                return Err(ScanError::Error); // TODO do better error handling here
-            }
-        }
-    }
+#[derive(Debug)]
+struct ScanState<'a> {
+    line: usize,
+    tokens: Vec<TokenInstance>,
+    source: &'a str,
+    start: usize,
+    current: usize,
+}
 
-    tokens.insert(
-        tokens.len(),
-        TokenInstance {
-            token_type: Token::Eof,
-            lexeme: "".to_string(),
+fn begin_scan(source: &str) -> ScanState {
+    ScanState {
+        line: 1,
+        tokens: vec![],
+        source,
+        start: 0,
+        current: 0,
+    }
+}
+
+fn is_scan_done(state: &ScanState) -> bool {
+    if state.current == state.source.len() {
+        true
+    } else {
+        false
+    }
+}
+
+fn peek(state: &ScanState) -> char {
+    if is_scan_done(&state) {
+        '\0'
+    } else {
+        state.source.chars().nth(state.current).unwrap()
+    }
+}
+
+fn peek_next(state: &ScanState) -> char {
+    if state.current + 1 >= state.source.len() {
+        '\0'
+    } else {
+        state.source.chars().nth(state.current + 1).unwrap()
+    }
+}
+
+fn advance(state: &mut ScanState) -> char {
+    let c = state.source.chars().nth(state.current);
+    state.current += 1;
+    c.unwrap()
+}
+
+fn match_next(n: char, state: &mut ScanState) -> bool {
+    match state.source.chars().nth(state.current) {
+        Some(d) if n == d => {
+            state.current += 1;
+            true
         },
-    );
-    Ok(tokens)
-}
-
-fn scan_token(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let peeker: IResult<&str, char> = peek(anychar)(input);
-    match peeker {
-        Ok((rest, c)) if c.is_ascii_whitespace() => value(None, multispace1)(rest),
-        Ok((rest, '(')) => scan_single(rest, Token::LeftParen),
-        Ok((rest, ')')) => scan_single(rest, Token::RightParen),
-        Ok((rest, '{')) => scan_single(rest, Token::LeftBrace),
-        Ok((rest, '}')) => scan_single(rest, Token::RightBrace),
-        Ok((rest, ',')) => scan_single(rest, Token::Comma),
-        Ok((rest, '.')) => scan_single(rest, Token::Dot),
-        Ok((rest, '-')) => scan_single(rest, Token::Minus),
-        Ok((rest, '+')) => scan_single(rest, Token::Plus),
-        Ok((rest, ';')) => scan_single(rest, Token::Semicolon),
-        Ok((rest, '*')) => scan_single(rest, Token::Star),
-        Ok((rest, '=')) => scan_single_or_double(rest, '=', '=', Token::Equal, Token::EqualEqual),
-        Ok((rest, '!')) => scan_single_or_double(rest, '!', '=', Token::Bang, Token::BangEqual),
-        Ok((rest, '>')) => {
-            scan_single_or_double(rest, '>', '=', Token::Greater, Token::GreaterEqual)
-        }
-        Ok((rest, '<')) => scan_single_or_double(rest, '<', '=', Token::Less, Token::LessEqual),
-        Ok((rest, '/')) => scan_slash_or_comment(rest),
-        Ok((rest, c)) if c.is_ascii_alphabetic() || c == '_' => scan_identifier_or_keyword(rest),
-        Ok((rest, '"')) => scan_quoted_string(rest),
-        Ok((rest, c)) if c.is_ascii_digit() => scan_number(rest),
-        Ok((rest, unknown)) => {
-            println!("unknown {:?} {:?}", rest, unknown);
-            fail(rest)
-        }
-        Err(err) => {
-            println!("err {:?}", err);
-            Err(err)
-        }
+        _ => false
     }
 }
 
-// Single character symbols like *
-fn scan_single(input: &str, token: Token) -> IResult<&str, Option<TokenInstance>> {
-    map(anychar, |c| {
-        Some(TokenInstance {
-            token_type: token.clone(),
-            lexeme: c.to_string(),
-        })
-    })(input)
-}
+fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
+    let next_char = advance(state);
+    match next_char {
+        // Skip whitespace, for it is not signicant, and handle line counting
+        '\t' | ' ' | '\r' => Ok(()),
+        '\n' => skip_character_new_line(state),
+        // Single characters
+        '(' => single_character_scanner(next_char, Token::LeftParen, state),
+        ')' => single_character_scanner(next_char, Token::RightParen, state),
+        '{' => single_character_scanner(next_char, Token::LeftBrace, state),
+        '}' => single_character_scanner(next_char, Token::RightBrace, state),
+        ',' => single_character_scanner(next_char, Token::Comma, state),
+        '.' => single_character_scanner(next_char, Token::Dot, state),
+        '-' => single_character_scanner(next_char, Token::Minus, state),
+        '+' => single_character_scanner(next_char, Token::Plus, state),
+        ';' => single_character_scanner(next_char, Token::Semicolon, state),
+        '*' => single_character_scanner(next_char, Token::Star, state),
 
-fn scan_number(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let fractional = recognize(tuple((digit1, tag("."), digit1)));
-    map(alt((fractional, digit1)), |s: &str| {
-        let number = s.parse::<f64>().unwrap();
-        Some(TokenInstance {
-            token_type: Token::Number(number),
-            lexeme: s.to_string(),
-        })
-    })(input)
-}
-
-// Single OR double character symbols like = and ==
-fn scan_single_or_double(
-    input: &str,
-    single: char,
-    double: char,
-    single_token: Token,
-    double_token: Token,
-) -> IResult<&str, Option<TokenInstance>> {
-    let double_target: String = [single, double].iter().collect();
-    let mut parser = map(
-        alt((tag(&double_target[..]), tag(&double_target[0..1]))),
-        |m: &str| {
-            if m.len() == 2 {
-                Some(TokenInstance {
-                    token_type: double_token.clone(),
-                    lexeme: m.to_string(),
-                })
-            } else {
-                Some(TokenInstance {
-                    token_type: single_token.clone(),
-                    lexeme: m.to_string(),
-                })
-            }
-        },
-    );
-    parser(input)
-}
-
-// Should be called after /* consumed
-//   now find */ or /*
-//   if you find /* call recursively
-//    if you find */ you are done
-fn scan_slash_star_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let mut open = 1;
-    let mut remainder = input;
-    loop {
-        let (new_remainder, _) = take_till(|c| c == '*' || c == '/')(remainder)?;
-        if new_remainder.len() == 0 {
-            // TODO this should return unterminated comment error
-            return fail(new_remainder);
+        // Single OR double characters
+        '=' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Equal,
+            Token::EqualEqual,
+            state,
+        ),
+        '!' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Equal,
+            Token::BangEqual,
+            state,
+        ),
+        '>' => single_or_double_character_scanner(
+            next_char,
+            '=',
+            Token::Greater,
+            Token::GreaterEqual,
+            state,
+        ),
+        '<' => {
+            single_or_double_character_scanner(next_char, '=', Token::Less, Token::LessEqual, state)
         }
-        remainder = new_remainder;
-        let next_close: IResult<&str, &str> = tag("*/")(remainder);
-        match next_close {
-            Ok((new_remainder, _)) => {
-                open = open - 1;
-                if open == 0 {
-                    return Ok((new_remainder, None));
-                } else {
-                    remainder = new_remainder;
-                }
-            }
-            Err(_) => (),
-        }
-        let next_open: IResult<&str, &str> = tag("/*")(remainder);
-        match next_open {
-            Ok((new_remainder, _)) => {
-                open = open + 1;
-                remainder = new_remainder;
-            }
-            Err(_) => (),
-        }
+        // Slash or comment
+        '/' => slash_or_comment_scanner(state),
+        // Numbers
+        m if m.is_ascii_digit() => number_scanner(state),
+        // Identifiers
+        m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
+        // String literals
+        '"' => string_scanner(state),
+        _ => return Err(ScanError::UnexpectedChar(next_char)),
     }
-}
-
-// Skip "//" to end of line
-fn scan_slash_or_comment(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let r: IResult<&str, &str> = peek(tag("//"))(input);
-    match r {
-        Ok((rest, _)) => value(None, pair(tag("//"), alt((eof, not_line_ending))))(rest),
-        Err(_) => {
-            let r2: IResult<&str, &str> = tag("/*")(input);
-            match r2 {
-                Ok((rest, _)) => scan_slash_star_comment(rest),
-                Err(_) => map(tag("/"), |c: &str| {
-                    Some(TokenInstance {
-                        token_type: Token::Slash,
-                        lexeme: c.to_string(),
-                    })
-                })(input),
-            }
-        }
-    }
-}
-
-// Identifier. Begins with ascii alphabetic, followed by alphanumeric, dash and underscores
-fn scan_identifier_or_keyword(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    let ident = recognize(pair(
-        alt((alpha1, tag("_"))),
-        many0(alt((alphanumeric1, tag("-"), tag("_")))),
-    ));
-    map(ident, |s: &str| {
-        if let Some(keyword_token) = KEY_WORDS.get(s) {
-            Some(TokenInstance {
-                token_type: keyword_token.clone(),
-                lexeme: s.to_string(),
-            })
-        } else {
-            Some(TokenInstance {
-                token_type: Token::Identifier(s.to_string()),
-                lexeme: s.to_string(),
-            })
-        }
-    })(input)
-}
-
-// String
-fn scan_quoted_string(input: &str) -> IResult<&str, Option<TokenInstance>> {
-    // TODO is there a better way to handle empty quoted string?
-    let quoted_string = alt((
-        value("", tag("\"\"")),
-        delimited(char('"'), is_not("\""), char('"')),
-    ));
-    let mut mr = map(quoted_string, |s: &str| {
-        Some(TokenInstance {
-            token_type: Token::String(s.to_string()),
-            lexeme: s.to_string(),
-        })
-    });
-    mr(input)
 }
 
 lazy_static! {
@@ -423,39 +317,451 @@ lazy_static! {
     };
 }
 
+fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
+    while peek(state) != '"' && !is_scan_done(state) {
+        if peek(state) == '\n' {
+            state.line = state.line + 1;
+        }
+        advance(state);
+    }
+
+    if is_scan_done(state) {
+        Err(ScanError::UnterminatedString(format!(
+            "Unterminated string {:?}",
+            state.source
+        )))
+    } else {
+        advance(state);
+        let word = &state.source[state.start+1..state.current-1];
+        state.tokens.push(TokenInstance {
+            token_type: Token::String(word.to_string()),
+            lexeme: word.to_string(),
+            line: state.line,
+        });
+        Ok(())
+    }
+}
+
+fn identifier_or_keyword_scanner(state: &mut ScanState) -> Result<(), ScanError> {
+    loop {
+        let peeked = peek(state);
+        if peeked.is_ascii_alphanumeric() || peeked == '_' {
+            advance(state);
+        } else {
+            break;
+        }
+    }
+    let word = &state.source[state.start..state.current];
+    if let Some(keyword_token) = KEY_WORDS.get(word) {
+        state.tokens.push(TokenInstance {
+            token_type: keyword_token.clone(),
+            lexeme: word.to_string(),
+            line: state.line,
+        })
+    } else {
+        state.tokens.push(TokenInstance {
+            token_type: Token::Identifier(word.to_string()),
+            lexeme: word.to_string(),
+            line: state.line,
+        })
+    }
+    Ok(())
+}
+
+fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
+    while peek(state).is_ascii_digit() {
+        advance(state);
+    }
+
+    if peek(state) == '.' && peek_next(state).is_ascii_digit() {
+        advance(state);
+        while peek(state).is_ascii_digit() {
+            advance(state);
+        }
+    }
+
+    let number_str = &state.source[state.start..state.current];
+    match str::parse::<f64>(&number_str) {
+        Ok(value) => {
+            state.tokens.push(TokenInstance {
+                token_type: Token::Number(value),
+                lexeme: number_str.to_string(),
+                line: state.line,
+            });
+            Ok(())
+        }
+        Err(_) => Err(ScanError::NumberFormatError(number_str.to_string())),
+    }
+}
+
+fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
+   if match_next('/', state) {
+       while peek(state) != '\n' && !is_scan_done(state) {
+           advance(state);
+       }
+   } else {
+        state.tokens.push(TokenInstance {
+            token_type: Token::Slash,
+            lexeme: '/'.to_string(),
+            line: state.line
+        })
+    }
+    Ok(())
+}
+
+// Handle single-character
+fn single_character_scanner(c: char, token: Token, state: &mut ScanState) -> Result<(), ScanError> {
+    state.tokens.push(TokenInstance {
+        token_type: token,
+        lexeme: c.to_string(),
+        line: state.line,
+    });
+    Ok(())
+}
+
+fn single_or_double_character_scanner(
+    c: char,
+    double_char: char,
+    single_token: Token,
+    double_token: Token,
+    state: &mut ScanState,
+) -> Result<(), ScanError> {
+    if match_next(double_char, state) {
+        let c_arr = [c, double_char];
+        state.tokens.push(TokenInstance {
+            token_type: double_token,
+            lexeme: String::from_iter(c_arr),
+            line: state.line,
+        })
+    } else {
+        state.tokens.push(TokenInstance {
+            token_type: single_token,
+            lexeme: c.to_string(),
+            line: state.line,
+        })
+    }
+    Ok(())
+}
+
+fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
+    state.line = state.line + 1;
+    Ok(())
+}
+
+pub fn scan(input: &str) -> Result<Vec<TokenInstance>, ScanError> {
+    let mut state: ScanState = begin_scan(input);
+    while !is_scan_done(&state) {
+        state.start = state.current;
+        scan_next(&mut state)?;
+    }
+    state.tokens.push(TokenInstance {
+        token_type: Token::Eof,
+        lexeme: "".to_string(),
+        line: state.line,
+    });
+    Ok(state.tokens)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_scan_quoted_string() {
-        let input = "\"Justin\"";
-        let token = TokenInstance {
-            token_type: Token::String("Justin".to_string()),
-            lexeme: "Justin".to_string(),
-        };
-        assert_eq!(Ok(("", Some(token))), scan_quoted_string(input));
-    }
-    #[test]
-    fn test_scan_quoted_string_fail() {
-        let input = "\"Justin";
-        let r = scan_quoted_string(input);
-        assert!(r.is_err());
+    fn scan_test_arithmetic_operators() {
+        let input = "=+".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
     }
 
     #[test]
-    fn test_scan_assignment_statement() {
-        let input = "string \"Justin\"";
-        let items = scan(input).unwrap();
-        println!("{:?}", items);
-        assert!(items.len() == 3);
+    fn scan_test_arithmetic_expression_with_spaces() {
+        let input = " a = 1 + 2 ; ".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(1.0),
+                lexeme: "1".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(2.0),
+                lexeme: "2".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Semicolon,
+                lexeme: ";".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
     }
 
     #[test]
-    fn test_scan_multiple_quoted_string() {
-        let input = "\"Justin\"\"Was\"\"Here\"";
-        let items = scan(input).unwrap();
-        println!("{:?}", items);
-        assert!(items.len() == 4);
+    fn scan_test_arithmetic_expression() {
+        let input = "a=1+2;".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(1.0),
+                lexeme: "1".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(2.0),
+                lexeme: "2".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Semicolon,
+                lexeme: ";".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_new_lines() {
+        let input = "a=\r\nb+c".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Equal,
+                lexeme: "=".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("c".to_string()),
+                lexeme: "c".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 2,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_function() {
+        let input = "\
+            fun addPair(a, b) {\n\
+              return a + b;\n\
+            }";
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Fun,
+                lexeme: "fun".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("addPair".to_string()),
+                lexeme: "addPair".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::LeftParen,
+                lexeme: "(".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::RightParen,
+                lexeme: ")".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::LeftBrace,
+                lexeme: "{".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Return,
+                lexeme: "return".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("a".to_string()),
+                lexeme: "a".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Plus,
+                lexeme: "+".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Identifier("b".to_string()),
+                lexeme: "b".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::Semicolon,
+                lexeme: ";".to_string(),
+                line: 2,
+            },
+            TokenInstance {
+                token_type: Token::RightBrace,
+                lexeme: "}".to_string(),
+                line: 3,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 3,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn scan_test_numerics() {
+        let input = "120,120.5,121".to_string();
+
+        let expected = vec![
+            TokenInstance {
+                token_type: Token::Number(120.0),
+                lexeme: "120".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(120.5),
+                lexeme: "120.5".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Comma,
+                lexeme: ",".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Number(121.0),
+                lexeme: "121".to_string(),
+                line: 1,
+            },
+            TokenInstance {
+                token_type: Token::Eof,
+                lexeme: "".to_string(),
+                line: 1,
+            },
+        ];
+
+        assert_eq!(scan(&input).unwrap(), expected);
+    }
+
+    #[test]
+    fn num_formatter_test() {
+        let s1: f64 = 100.;
+        let s2: f64 = 100.1;
+        let s3: f64 = 100.12;
+        let s4: f64 = 100.123;
+        let s5: f64 = 100.1234;
+
+        assert_eq!(num_format(s1), "100.0".to_string());
+        assert_eq!(num_format(s2), "100.1".to_string());
+        assert_eq!(num_format(s3), "100.12".to_string());
+        assert_eq!(num_format(s4), "100.123".to_string());
+        assert_eq!(num_format(s5), "100.123".to_string());
     }
 }

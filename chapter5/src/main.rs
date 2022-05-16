@@ -1,5 +1,7 @@
+use rlox::parse;
 // Lox code scanner using nom
 use rlox::scan::scan;
+use rlox::parse::parse;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::env;
@@ -27,8 +29,12 @@ fn main() {
             match readline {
                 Ok(line) => match scan(&line) {
                     Ok(tokens) => {
+                        let parsed = parse(&tokens);
+
                         rl.add_history_entry(line.as_str());
-                        tokens.iter().for_each(|token| println!("{:?}", token))
+                        tokens.iter().for_each(|token| println!("{:?}", token));
+                        println!("{}", parsed)
+
                     }
                     Err(err) => println!("Error {:?}", err),
                 },

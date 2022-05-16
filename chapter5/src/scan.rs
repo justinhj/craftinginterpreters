@@ -234,8 +234,8 @@ fn match_next(n: char, state: &mut ScanState) -> bool {
         Some(d) if n == d => {
             state.current += 1;
             true
-        },
-        _ => false
+        }
+        _ => false,
     }
 }
 
@@ -332,7 +332,7 @@ fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
         )))
     } else {
         advance(state);
-        let word = &state.source[state.start+1..state.current-1];
+        let word = &state.source[state.start + 1..state.current - 1];
         state.tokens.push(TokenInstance {
             token_type: Token::String(word.to_string()),
             lexeme: word.to_string(),
@@ -395,15 +395,15 @@ fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
 }
 
 fn slash_or_comment_scanner(state: &mut ScanState) -> Result<(), ScanError> {
-   if match_next('/', state) {
-       while peek(state) != '\n' && !is_scan_done(state) {
-           advance(state);
-       }
-   } else {
+    if match_next('/', state) {
+        while peek(state) != '\n' && !is_scan_done(state) {
+            advance(state);
+        }
+    } else {
         state.tokens.push(TokenInstance {
             token_type: Token::Slash,
             lexeme: '/'.to_string(),
-            line: state.line
+            line: state.line,
         })
     }
     Ok(())

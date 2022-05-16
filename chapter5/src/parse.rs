@@ -36,7 +36,7 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Binary(l, operator, r) => write!(f, "({:?} {} {})",operator,l,r),
+            Expr::Binary(l, operator, r) => write!(f, "({:?} {} {})", operator, l, r),
             Expr::Unary(operator, expr) => write!(f, "({:?} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
@@ -83,11 +83,12 @@ struct ParseState<'a> {
 // unary -> ( "!" | "-" ) unary | primary ;
 // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-
-fn parse(input: &TokenInstance) -> Result<Vec<TokenInstance>, CustomError> {
-    // let tokens = parse_statements(input);
-
-    todo!()
+pub fn parse(input: &[TokenInstance]) -> Expr {
+    let mut ps = ParseState {
+        source: input,
+        current: 0
+    };
+    parse_expression(&mut ps)
 }
 
 fn parse_expression(ps: &mut ParseState) -> Expr {
@@ -100,14 +101,106 @@ fn parse_equality(ps: &mut ParseState) -> Expr {
     let comparison_operator = match &token.token_type {
         Token::BangEqual => Operator::BangEqual,
         Token::EqualEqual => Operator::EqualEqual,
-        _ => panic!("Failed matching comparison operator {:?} {}", token, token.line)
+        _ => panic!(
+            "Failed matching comparison operator {:?} {}",
+            token, token.line
+        ),
     };
     let right = parse_comparison(ps);
     Expr::Binary(Box::new(left), comparison_operator, Box::new(right))
 }
 
 fn parse_comparison(ps: &mut ParseState) -> Expr {
-    todo!()
+    let mut expr = parse_term(ps);
+    loop {
+        let peeked_token = peek(ps);
+        let operator = match peeked_token.token_type {
+            Token::LessEqual => Some(Operator::LessEqual),
+            Token::GreaterEqual => Some(Operator::GreaterEqual),
+            Token::Greater => Some(Operator::Greater),
+            Token::Less => Some(Operator::Less),
+            _ => None
+        };
+        match operator {
+            Some(operator) => {
+                advance(ps);
+                let right = parse_term(ps);
+                expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
+            },
+            None => return expr
+        }
+    }
+}
+
+fn parse_term(ps: &mut ParseState) -> Expr {
+    let mut expr = parse_factor(ps);
+    loop {
+        let peeked_token = peek(ps);
+        let operator = match peeked_token.token_type {
+            Token::Minus => Some(Operator::Minus),
+            Token::Plus => Some(Operator::Plus),
+            _ => None
+        };
+        match operator {
+            Some(operator) => {
+                advance(ps);
+                let right = parse_factor(ps);
+                expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
+            },
+            None => return expr
+        }
+    }
+}
+
+fn parse_factor(ps: &mut ParseState) -> Expr {
+    let mut expr = parse_unary(ps);
+    loop {
+        let peeked_token = peek(ps);
+        let operator = match peeked_token.token_type {
+            Token::Slash => Some(Operator::Slash),
+            Token::Star => Some(Operator::Star),
+            _ => None
+        };
+        match operator {
+            Some(operator) => {
+                advance(ps);
+                let right = parse_unary(ps);
+                expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
+            },
+            None => return expr
+        }
+    }
+}
+
+fn parse_unary(ps: &mut ParseState) -> Expr {
+    let token = peek(ps);
+
+    let unary_op = match &token.token_type {
+        Token::Bang => Some(Operator::Bang),
+        Token::Minus => Some(Operator::Minus),
+        _ => None
+    };
+   
+    match unary_op {
+        Some(uo) => {
+            advance(ps); // Need to advance since we peeked before only
+            Expr::Unary(uo, Box::new(parse_unary(ps)))
+        },
+        None => parse_primary(ps)
+    }
+}
+
+// This is for when a primary finds a left paren. Parse an expression and expect
+// a right paren.
+fn parse_group(ps: &mut ParseState) -> Expr {
+    let expr = parse_expression(ps);
+    let token = advance(ps);
+
+    match token.token_type {
+        Token::RightParen => expr,
+        _ => panic!("Failed finding matching right paren {:?} {}", token, token.line),
+    }
+
 }
 
 fn parse_primary(ps: &mut ParseState) -> Expr {
@@ -119,21 +212,19 @@ fn parse_primary(ps: &mut ParseState) -> Expr {
         Token::Nil => Expr::Literal(Literal::Nil),
         Token::Number(n) => Expr::Literal(Literal::Number(*n)),
         Token::String(s) => Expr::Literal(Literal::String(s.clone())),
-        _ => panic!("Failed matching primary {:?} {}", token, token.line)
+        Token::LeftParen => parse_group(ps),
+        _ => panic!("Failed matching primary {:?} {}", token, token.line),
     }
-    // TODO parse ( expression )
 }
 
 // Helpers
 fn is_at_end(ps: &ParseState) -> bool {
     match ps.source.get(ps.current) {
-        Some(token_instance) => {
-            match token_instance.token_type {
-                Token::Eof => true,
-                _ => false
-            }
+        Some(token_instance) => match token_instance.token_type {
+            Token::Eof => true,
+            _ => false,
         },
-        _ => false
+        _ => false,
     }
 }
 

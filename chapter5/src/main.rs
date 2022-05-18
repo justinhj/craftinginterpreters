@@ -15,9 +15,15 @@ fn main() {
 
         match scan(&source) {
             Ok(tokens) => {
-                let parsed = parse(&tokens);
-                tokens.iter().for_each(|token| println!("{:?}", token));
-                println!("{}", parsed)
+                match parse(&tokens) {
+                    Ok(parsed) => {
+                        tokens.iter().for_each(|token| println!("{:?}", token));
+                        println!("{}", parsed)
+                    },
+                    Err(err) => {
+                        println!("{:?}", err)
+                    },
+                }
             },
             Err(err) => println!("Error {:?}", err),
         }
@@ -33,10 +39,16 @@ fn main() {
             match readline {
                 Ok(line) => match scan(&line) {
                     Ok(tokens) => {
-                        let parsed = parse(&tokens);
-                        rl.add_history_entry(line.as_str());
-                        tokens.iter().for_each(|token| println!("{:?}", token));
-                        println!("{}", parsed)
+                        match parse(&tokens) {
+                            Ok(parsed) => {
+                                rl.add_history_entry(line.as_str());
+                                tokens.iter().for_each(|token| println!("{:?}", token));
+                                println!("{}", parsed)
+                            },
+                            Err(err) => {
+                                println!("{:?}", err)
+                            }
+                        }
 
                     }
                     Err(err) => println!("Error {:?}", err),

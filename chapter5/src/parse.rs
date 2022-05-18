@@ -97,18 +97,25 @@ fn parse_expression(ps: &mut ParseState) -> ParseResult {
 }
 
 fn parse_equality(ps: &mut ParseState) -> ParseResult {
-    let left = parse_comparison(ps)?;
-    let token = advance(ps);
-    let comparison_operator = match &token.token_type {
-        Token::BangEqual => Operator::BangEqual,
-        Token::EqualEqual => Operator::EqualEqual,
-        _ => return Err(ParseError{message: format!(
-            "Failed matching comparison operator {:?} {}",
-            token, token.line
-        )}),
-    };
-    let right = parse_comparison(ps)?;
-    Ok(Expr::Binary(Box::new(left), comparison_operator, Box::new(right)))
+    let mut expr = parse_comparison(ps)?;
+
+    loop {
+        let peeked_token = peek(ps);
+        let equality_operator = match &peeked_token.token_type {
+            Token::BangEqual => Some(Operator::BangEqual),
+            Token::EqualEqual => Some(Operator::EqualEqual),
+            _ => None,
+        };
+
+        match equality_operator {
+            Some(operator) => {
+                advance(ps);
+                let right = parse_comparison(ps)?;
+                expr = Expr::Binary(Box::new(expr), operator, Box::new(right))
+            },
+            None => return Ok(expr)
+        }
+    }
 }
 
 fn parse_comparison(ps: &mut ParseState) -> ParseResult {

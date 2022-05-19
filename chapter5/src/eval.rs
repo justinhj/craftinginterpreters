@@ -62,6 +62,31 @@ pub fn eval(expr: &Expr) -> EvalResult {
                         None => Err(RuntimeError{message:format!("Comparison error: < {:?} {:?}", left, right)}),
                     }
                 },
+                // Arithmetic
+                Operator::Plus => {
+                    match left_number.zip(right_number).map(|(a,b)| a + b) {
+                        Some(result) => Ok(Value::Number(result)),
+                        None => Err(RuntimeError{message:format!("Arithmetic error: + {:?} {:?}", left, right)}),
+                    }
+                },
+                Operator::Minus => {
+                    match left_number.zip(right_number).map(|(a,b)| a - b) {
+                        Some(result) => Ok(Value::Number(result)),
+                        None => Err(RuntimeError{message:format!("Arithmetic error: - {:?} {:?}", left, right)}),
+                    }
+                },
+                Operator::Star => {
+                    match left_number.zip(right_number).map(|(a,b)| a * b) {
+                        Some(result) => Ok(Value::Number(result)),
+                        None => Err(RuntimeError{message:format!("Arithmetic error: * {:?} {:?}", left, right)}),
+                    }
+                },
+                Operator::Slash => {
+                    match left_number.zip(right_number).map(|(a,b)| a / b) {
+                        Some(result) => Ok(Value::Number(result)),
+                        None => Err(RuntimeError{message:format!("Arithmetic error: / {:?} {:?}", left, right)}),
+                    }
+                },
                 _ => todo!(),
             }
         },

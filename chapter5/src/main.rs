@@ -2,18 +2,17 @@ use rlox::parse::parse;
 use rlox::scan::scan;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use std::env;
 use std::fs;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
-    #[structopt(short, long)]
-    scan_only: bool,
+    #[structopt(short = "s", long)]
+    show_scan: bool,
 
-    #[structopt(short, long)]
-    parse_only: bool,
+    #[structopt(short = "p", long)]
+    show_parse: bool,
 
     #[structopt(parse(from_os_str))]
     inputfile: Option<PathBuf>,
@@ -21,8 +20,8 @@ struct Opt {
 
 fn main() {
     let Opt {
-        scan_only,
-        parse_only,
+        show_scan,
+        show_parse,
         inputfile,
     } = Opt::from_args();
 
@@ -31,18 +30,21 @@ fn main() {
             let source = fs::read_to_string(f).unwrap();
             match scan(&source) {
                 Ok(tokens) => {
-                    println!("Tokens:");
-                    tokens.iter().for_each(|token| println!("\t{:?}", token));
-                    if !scan_only {
-                        match parse(&tokens) {
+                    if show_scan {
+                        println!("Tokens:");
+                        tokens.iter().for_each(|token| println!("\t{:?}", token));
+                    }
+                    match parse(&tokens) {
                         Ok(parsed) => {
-                            println!("\nParsed AST:\n\t{}", parsed)
+                            if show_parse {
+                                println!("\nParsed AST:\n\t{}", parsed)
+                            }
                         }
                         Err(err) => {
                             println!("{:?}", err)
                         }
                     }
-                }},
+                }
                 Err(err) => println!("Error {:?}", err),
             }
         }
@@ -57,16 +59,22 @@ fn main() {
                 let readline = rl.readline(">> ");
                 match readline {
                     Ok(line) => match scan(&line) {
-                        Ok(tokens) => match parse(&tokens) {
+                        Ok(tokens) => {
+                            if show_scan {
+                                println!("Tokens:");
+                                tokens.iter().for_each(|token| println!("\t{:?}", token));
+                            }
+                            match parse(&tokens) {
                             Ok(parsed) => {
                                 rl.add_history_entry(line.as_str());
-                                tokens.iter().for_each(|token| println!("{:?}", token));
-                                println!("Parsed {}", parsed)
+                                if show_parse {
+                                    println!("\nParsed AST:\n\t{}", parsed)
+                                }
                             }
                             Err(err) => {
                                 println!("{:?}", err)
                             }
-                        },
+                        }},
                         Err(err) => println!("Error {:?}", err),
                     },
                     Err(ReadlineError::Interrupted) => {

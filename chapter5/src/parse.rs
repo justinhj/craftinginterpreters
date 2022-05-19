@@ -87,7 +87,7 @@ type ParseResult = Result<Expr, ParseError>;
 pub fn parse(input: &[TokenInstance]) -> ParseResult {
     let mut ps = ParseState {
         source: input,
-        current: 0
+        current: 0,
     };
     parse_expression(&mut ps)
 }
@@ -112,8 +112,8 @@ fn parse_equality(ps: &mut ParseState) -> ParseResult {
                 advance(ps);
                 let right = parse_comparison(ps)?;
                 expr = Expr::Binary(Box::new(expr), operator, Box::new(right))
-            },
-            None => return Ok(expr)
+            }
+            None => return Ok(expr),
         }
     }
 }
@@ -127,15 +127,15 @@ fn parse_comparison(ps: &mut ParseState) -> ParseResult {
             Token::GreaterEqual => Some(Operator::GreaterEqual),
             Token::Greater => Some(Operator::Greater),
             Token::Less => Some(Operator::Less),
-            _ => None
+            _ => None,
         };
         match operator {
             Some(operator) => {
                 advance(ps);
                 let right = parse_term(ps)?;
                 expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
-            },
-            None => return Ok(expr)
+            }
+            None => return Ok(expr),
         }
     }
 }
@@ -147,15 +147,15 @@ fn parse_term(ps: &mut ParseState) -> ParseResult {
         let operator = match peeked_token.token_type {
             Token::Minus => Some(Operator::Minus),
             Token::Plus => Some(Operator::Plus),
-            _ => None
+            _ => None,
         };
         match operator {
             Some(operator) => {
                 advance(ps);
                 let right = parse_factor(ps)?;
                 expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
-            },
-            None => return Ok(expr)
+            }
+            None => return Ok(expr),
         }
     }
 }
@@ -167,15 +167,15 @@ fn parse_factor(ps: &mut ParseState) -> ParseResult {
         let operator = match peeked_token.token_type {
             Token::Slash => Some(Operator::Slash),
             Token::Star => Some(Operator::Star),
-            _ => None
+            _ => None,
         };
         match operator {
             Some(operator) => {
                 advance(ps);
                 let right = parse_unary(ps)?;
                 expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
-            },
-            None => return Ok(expr)
+            }
+            None => return Ok(expr),
         }
     }
 }
@@ -186,16 +186,16 @@ fn parse_unary(ps: &mut ParseState) -> ParseResult {
     let unary_op = match &token.token_type {
         Token::Bang => Some(Operator::Bang),
         Token::Minus => Some(Operator::Minus),
-        _ => None
+        _ => None,
     };
-   
+
     match unary_op {
         Some(uo) => {
             advance(ps); // Need to advance since we peeked before only
             let unary = parse_unary(ps)?;
             Ok(Expr::Unary(uo, Box::new(unary)))
-        },
-        None => parse_primary(ps)
+        }
+        None => parse_primary(ps),
     }
 }
 
@@ -207,10 +207,13 @@ fn parse_group(ps: &mut ParseState) -> ParseResult {
 
     match token.token_type {
         Token::RightParen => expr,
-        _ => Err(ParseError{message:
-            format!("Failed finding matching right paren {:?} {}", token, token.line)}),
+        _ => Err(ParseError {
+            message: format!(
+                "Failed finding matching right paren {:?} {}",
+                token, token.line
+            ),
+        }),
     }
-
 }
 
 fn parse_primary(ps: &mut ParseState) -> ParseResult {
@@ -223,7 +226,9 @@ fn parse_primary(ps: &mut ParseState) -> ParseResult {
         Token::Number(n) => Ok(Expr::Literal(Literal::Number(*n))),
         Token::String(s) => Ok(Expr::Literal(Literal::String(s.clone()))),
         Token::LeftParen => parse_group(ps),
-        _ => Err(ParseError{message: format!("Failed matching primary {:?} {}", token, token.line)}),
+        _ => Err(ParseError {
+            message: format!("Failed matching primary {:?} {}", token, token.line),
+        }),
     }
 }
 

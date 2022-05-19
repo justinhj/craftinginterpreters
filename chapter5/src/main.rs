@@ -1,5 +1,6 @@
 use rlox::parse::parse;
 use rlox::scan::scan;
+use rlox::eval::eval;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::fs;
@@ -70,6 +71,8 @@ fn main() {
                                 if show_parse {
                                     println!("\nParsed AST:\n\t{}", parsed)
                                 }
+                                let eval_result = eval(&parsed);
+                                println!("Eval result: {:?}", eval_result);
                             }
                             Err(err) => {
                                 println!("{:?}", err)

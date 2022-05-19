@@ -1,7 +1,8 @@
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 
-pub enum Literal {
+#[derive(Debug,Clone)]
+pub enum Value {
     String(String),
     Boolean(bool),
     Number(f64),
@@ -31,11 +32,12 @@ pub enum Operator {
     Or,
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Binary(Box<Expr>, Operator, Box<Expr>),
     Unary(Operator, Box<Expr>),
     Grouping(Box<Expr>),
-    Literal(Literal),
+    Literal(Value),
 }
 
 impl Display for Expr {
@@ -49,19 +51,19 @@ impl Display for Expr {
     }
 }
 
-impl Display for Literal {
+impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::Number(n) => write!(f, "{}", num_format(*n)),
-            Literal::String(string) => write!(f, "{}", string),
-            Literal::Boolean(b) => {
+            Value::Number(n) => write!(f, "{}", num_format(*n)),
+            Value::String(string) => write!(f, "{}", string),
+            Value::Boolean(b) => {
                 if *b {
                     write!(f, "true")
                 } else {
                     write!(f, "false")
                 }
             }
-            Literal::Nil => write!(f, "nil"),
+            Value::Nil => write!(f, "nil"),
         }
     }
 }
@@ -220,11 +222,11 @@ fn parse_primary(ps: &mut ParseState) -> ParseResult {
     let token = advance(ps);
 
     match &token.token_type {
-        Token::True => Ok(Expr::Literal(Literal::Boolean(true))),
-        Token::False => Ok(Expr::Literal(Literal::Boolean(false))),
-        Token::Nil => Ok(Expr::Literal(Literal::Nil)),
-        Token::Number(n) => Ok(Expr::Literal(Literal::Number(*n))),
-        Token::String(s) => Ok(Expr::Literal(Literal::String(s.clone()))),
+        Token::True => Ok(Expr::Literal(Value::Boolean(true))),
+        Token::False => Ok(Expr::Literal(Value::Boolean(false))),
+        Token::Nil => Ok(Expr::Literal(Value::Nil)),
+        Token::Number(n) => Ok(Expr::Literal(Value::Number(*n))),
+        Token::String(s) => Ok(Expr::Literal(Value::String(s.clone()))),
         Token::LeftParen => parse_group(ps),
         _ => Err(ParseError {
             message: format!("Failed matching primary {:?} {}", token, token.line),
@@ -267,9 +269,9 @@ mod tests {
     #[test]
     fn test_display_expression_kitchen_sink() {
         let expr: Expr = Expr::Binary(
-            Box::new(Expr::Literal(Literal::Number(100.0))),
+            Box::new(Expr::Literal(Value::Number(100.0))),
             Operator::Plus,
-            Box::new(Expr::Literal(Literal::Number(200.0))),
+            Box::new(Expr::Literal(Value::Number(200.0))),
         );
 
         assert_eq!("(+ 100.0 200.0)", format!("{}", expr));

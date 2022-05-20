@@ -268,7 +268,7 @@ fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
         '!' => single_or_double_character_scanner(
             next_char,
             '=',
-            Token::Equal,
+            Token::Bang,
             Token::BangEqual,
             state,
         ),

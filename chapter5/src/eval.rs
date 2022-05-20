@@ -1,4 +1,4 @@
-use crate::eval::Expr::{Binary, Literal};
+use crate::eval::Expr::{Binary, Literal, Unary};
 use crate::parse::Operator;
 use crate::parse::{Expr, Value};
 
@@ -33,6 +33,26 @@ type EvalResult = Result<Value, RuntimeError>;
 pub fn eval(expr: &Expr) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
+        Unary(operator, right) => {
+            let right = eval(right)?;
+            match operator {
+                Operator::Bang => {
+                    let b = bool_value(&right);
+                    Ok(Value::Boolean(!b))
+                },
+                Operator::Minus => {
+                    match numeric_value(&right) {
+                        Some(n) =>
+                            Ok(Value::Number(-n)),
+                        None => 
+                            Err(RuntimeError{message:format!("Cannot negate {:?}", right)}),
+                    }
+                },
+                thing @ _ => {
+                    Err(RuntimeError{message:format!("Unary inappropriate for {:?}", thing)})
+                },
+            }
+        },
         Binary(left, operator, right) => {
             let left = eval(left)?;
             let right = eval(right)?;

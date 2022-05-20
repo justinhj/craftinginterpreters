@@ -60,6 +60,8 @@ pub fn eval(expr: &Expr) -> EvalResult {
             let right_number = numeric_value(&right);
 
             match operator {
+                // String concat
+                Operator::Plus if matches!(left,Value::String(_)) => eval_string_append(left,right),
                 // Equality operators
                 Operator::EqualEqual => eval_equality_operator(left,right,false),
                 Operator::BangEqual => eval_equality_operator(left,right,true),
@@ -77,7 +79,6 @@ pub fn eval(expr: &Expr) -> EvalResult {
             }
         }
         _ => {
-            println!("eval3 {:?}", expr);
             todo!()
         }
     }
@@ -138,5 +139,12 @@ where
         None => Err(RuntimeError {
             message: format!("Comparison error: {:?} {:?} {:?}", left, text, right),
         }),
+    }
+}
+
+fn eval_string_append(left: Value, right: Value) -> EvalResult {
+    match (&left,&right) {
+        (Value::String(s1),Value::String(s2)) => Ok(Value::String(format!("{}{}",s1,s2))),
+        _ => Err(RuntimeError{message:format!("Cannot string append {:?}", right)}),
     }
 }

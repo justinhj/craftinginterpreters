@@ -1,6 +1,6 @@
+use rlox::eval::eval;
 use rlox::parse::parse;
 use rlox::scan::scan;
-use rlox::eval::eval;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::fs;
@@ -66,18 +66,19 @@ fn main() {
                                 tokens.iter().for_each(|token| println!("\t{:?}", token));
                             }
                             match parse(&tokens) {
-                            Ok(parsed) => {
-                                rl.add_history_entry(line.as_str());
-                                if show_parse {
-                                    println!("\nParsed AST:\n\t{}", parsed)
+                                Ok(parsed) => {
+                                    rl.add_history_entry(line.as_str());
+                                    if show_parse {
+                                        println!("\nParsed AST:\n\t{}", parsed)
+                                    }
+                                    let eval_result = eval(&parsed);
+                                    println!("Eval result: {:?}", eval_result);
                                 }
-                                let eval_result = eval(&parsed);
-                                println!("Eval result: {:?}", eval_result);
+                                Err(err) => {
+                                    println!("{:?}", err)
+                                }
                             }
-                            Err(err) => {
-                                println!("{:?}", err)
-                            }
-                        }},
+                        }
                         Err(err) => println!("Error {:?}", err),
                     },
                     Err(ReadlineError::Interrupted) => {

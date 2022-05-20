@@ -1,7 +1,7 @@
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Value {
     String(String),
     Boolean(bool),
@@ -14,7 +14,7 @@ pub struct ParseError {
     message: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Equal,
     Minus,

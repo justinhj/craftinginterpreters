@@ -40,8 +40,10 @@ fn main() {
                             if show_parse {
                                 println!("\nParsed AST:\n\t{}", parsed)
                             }
-                            let eval_result = eval(&parsed);
-                            println!("Eval result: {:?}", eval_result);
+                            match eval(&parsed) {
+                                Ok(eval_result) => println!("{}", eval_result),
+                                Err(err) => println!("Error: {:?}", err),
+                            }
                         }
                         Err(err) => {
                             println!("{:?}", err)

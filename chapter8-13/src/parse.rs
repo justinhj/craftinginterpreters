@@ -1,4 +1,3 @@
-use std::fmt::Formatter;
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 
@@ -33,27 +32,6 @@ pub enum Operator {
     Or,
 }
 
-impl Display for Operator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> { 
-        match self {
-            Operator::Equal => write!(f, "="),
-            Operator::Minus => write!(f, "-"),
-            Operator::Plus => write!(f, "+"),
-            Operator::Star => write!(f, "*"),
-            Operator::Bang => write!(f, "!"),
-            Operator::BangEqual => write!(f, "!="),
-            Operator::EqualEqual => write!(f, "=="),
-            Operator::Greater => write!(f, ">"),
-            Operator::GreaterEqual => write!(f, ">="),
-            Operator::Less => write!(f, "<"),
-            Operator::LessEqual => write!(f, "<="),
-            Operator::Slash => write!(f, "/"),
-            Operator::And => write!(f, "and"),
-            Operator::Or => write!(f, "or"),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Expr {
     Binary(Box<Expr>, Operator, Box<Expr>),
@@ -65,8 +43,8 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
-            Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
+            Expr::Binary(l, operator, r) => write!(f, "({:?} {} {})", operator, l, r),
+            Expr::Unary(operator, expr) => write!(f, "({:?} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
         }

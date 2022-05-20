@@ -1,2 +1,2 @@
 // Simple expression with parens
-1 + (1 / 10 != 4) == 2
+1 + (1 / 10 * -(100.0 * -69.5)) == 2

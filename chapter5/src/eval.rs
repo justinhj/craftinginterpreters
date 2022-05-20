@@ -58,13 +58,11 @@ pub fn eval(expr: &Expr) -> EvalResult {
             let right = eval(right)?;
             let left_number = numeric_value(&left);
             let right_number = numeric_value(&right);
-            let left_bool = bool_value(&left);
-            let right_bool = bool_value(&right);
 
             match operator {
                 // Equality operators
-                Operator::EqualEqual => eval_equality_operator(left_bool,right_bool,|(a,b)| a == b),
-                Operator::BangEqual => eval_equality_operator(left_bool,right_bool,|(a,b)| a != b),
+                Operator::EqualEqual => eval_equality_operator(left,right,false),
+                Operator::BangEqual => eval_equality_operator(left,right,true),
                 // Comparison operators
                 Operator::Greater => eval_comparison_operator(left,right,left_number,right_number,">",|(a,b)| a > b),
                 Operator::GreaterEqual => eval_comparison_operator(left,right,left_number,right_number,">=",|(a,b)| a >= b),
@@ -85,14 +83,24 @@ pub fn eval(expr: &Expr) -> EvalResult {
     }
 }
 
-fn eval_equality_operator<T>( left_bool: bool, right_bool: bool,
-    f: T,
-) -> EvalResult
-where
-    T: Fn((bool, bool)) -> bool,
-{
-    let result = f((left_bool,right_bool));
-    Ok(Value::Boolean(result))
+// Nil is only equal to nil
+// Two numbers can be compared
+// Two bools can be compared 
+// Otherwise it is not equal
+fn eval_equality_operator(left: Value, right: Value, negate: bool) -> EvalResult {
+    let result = match (&left,&right) {
+        (Value::Nil,Value::Nil) => true,
+        (Value::Number(n1),Value::Number(n2)) => n1 == n2,
+        (Value::Boolean(b1),Value::Boolean(b2)) => b1 == b2,
+        (Value::String(s1),Value::String(s2)) => s1 == s2,
+        _ => return Err(RuntimeError{message:format!("Don't know how to compare {:?} and {:?}", left, right)}),
+    };
+
+    if negate {
+        Ok(Value::Boolean(!result))
+    } else {
+        Ok(Value::Boolean(result))
+    }
 }
 
 fn eval_arithmetic_operator<T>(

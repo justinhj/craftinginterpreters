@@ -1,0 +1,4 @@
+// Example of printing expressions and expression statements
+1 + 1;
+"Justin" == "Jamie";
+print 100 * 22;

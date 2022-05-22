@@ -1,4 +1,4 @@
-use rlox::eval::eval;
+use rlox::eval::eval_statements;
 use rlox::parse::parse;
 use rlox::scan::scan;
 use rustyline::error::ReadlineError;
@@ -38,10 +38,13 @@ fn main() {
                     match parse(&tokens) {
                         Ok(parsed) => {
                             if show_parse {
-                                println!("\nParsed AST:\n\t{}", parsed)
+                                println!("\nParsed AST:\n");
+                                for statement in &parsed {
+                                    println!("\t{}", statement)
+                                }
                             }
-                            match eval(&parsed) {
-                                Ok(eval_result) => println!("{}", eval_result),
+                            match eval_statements(&parsed) {
+                                Ok(_) => println!("Done"),
                                 Err(err) => println!("Error: {:?}", err),
                             }
                         }
@@ -73,9 +76,9 @@ fn main() {
                                 Ok(parsed) => {
                                     rl.add_history_entry(line.as_str());
                                     if show_parse {
-                                        println!("\nParsed AST:\n\t{}", parsed)
+                                        println!("\nParsed AST:\n\n")
                                     }
-                                    let eval_result = eval(&parsed);
+                                    let eval_result = eval_statements(&parsed);
                                     println!("Eval result: {:?}", eval_result);
                                 }
                                 Err(err) => {

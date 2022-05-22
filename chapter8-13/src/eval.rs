@@ -1,6 +1,6 @@
 use crate::eval::Expr::{Binary, Literal, Unary};
 use crate::parse::Operator;
-use crate::parse::{Expr, Value};
+use crate::parse::{Stmt, Expr, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -29,12 +29,36 @@ fn numeric_value(value: &Value) -> Option<f64> {
 
 type EvalResult = Result<Value, RuntimeError>;
 
+pub fn eval_statements(stmts: &[Stmt]) -> Result<(), RuntimeError> {
+    for stmt in stmts {
+        match stmt {
+            Stmt::Print(expr) => {
+                match eval_expression(expr) {
+                    Ok(value) => println!("{}",value),
+                    Err(err) => {
+                        return Err(err)
+                    },
+                }
+            },
+            Stmt::Expression(expr) => {
+                match eval_expression(expr) {
+                    Ok(_) => (),
+                    Err(err) => {
+                        return Err(err)
+                    },
+                }
+            },
+        }
+    }
+    Ok(())
+}
+
 #[rustfmt::skip]
-pub fn eval(expr: &Expr) -> EvalResult {
+pub fn eval_expression(expr: &Expr) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
         Unary(operator, right) => {
-            let right = eval(right)?;
+            let right = eval_expression(right)?;
             match operator {
                 Operator::Bang => {
                     let b = bool_value(&right);
@@ -54,8 +78,8 @@ pub fn eval(expr: &Expr) -> EvalResult {
             }
         },
         Binary(left, operator, right) => {
-            let left = eval(left)?;
-            let right = eval(right)?;
+            let left = eval_expression(left)?;
+            let right = eval_expression(right)?;
             let left_number = numeric_value(&left);
             let right_number = numeric_value(&right);
 

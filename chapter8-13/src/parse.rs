@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 
@@ -32,6 +33,44 @@ pub enum Operator {
     Or,
 }
 
+impl Display for Operator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Operator::Equal => write!(f, "="),
+            Operator::Minus => write!(f, "-"),
+            Operator::Plus => write!(f, "+"),
+            Operator::Star => write!(f, "*"),
+            Operator::Bang => write!(f, "!"),
+            Operator::BangEqual => write!(f, "!="),
+            Operator::EqualEqual => write!(f, "=="),
+            Operator::Greater => write!(f, ">"),
+            Operator::GreaterEqual => write!(f, ">="),
+            Operator::Less => write!(f, "<"),
+            Operator::LessEqual => write!(f, "<="),
+            Operator::Slash => write!(f, "/"),
+            Operator::And => write!(f, "and"),
+            Operator::Or => write!(f, "or"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
+}
+
+impl Display for Stmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stmt::Expression(expr) =>
+                write!(f, "{};", expr),
+            Stmt::Print(expr) =>
+                write!(f, "print {};",expr),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Expr {
     Binary(Box<Expr>, Operator, Box<Expr>),
@@ -43,8 +82,8 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Binary(l, operator, r) => write!(f, "({:?} {} {})", operator, l, r),
-            Expr::Unary(operator, expr) => write!(f, "({:?} {})", operator, expr),
+            Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
+            Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
         }
@@ -76,6 +115,12 @@ struct ParseState<'a> {
 }
 
 // Grammar
+// 
+// program -> statement* EOF ;
+// statement -> exprStatement | printStatement ;
+// exprStatement -> expression ";" ;
+// printStatement -> print expression ";" ;
+// 
 // expression -> equality ;
 // equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
@@ -84,21 +129,47 @@ struct ParseState<'a> {
 // unary -> ( "!" | "-" ) unary | primary ;
 // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-type ParseResult = Result<Expr, ParseError>;
+type ParseExprResult = Result<Expr, ParseError>;
 
-pub fn parse(input: &[TokenInstance]) -> ParseResult {
+pub fn parse(input: &[TokenInstance]) -> Result<Vec<Stmt>, ParseError> {
     let mut ps = ParseState {
         source: input,
         current: 0,
     };
-    parse_expression(&mut ps)
+
+    let mut statements = vec!();
+    while !is_at_end(&ps) {
+        let statement = parse_statement(&mut ps)?;
+        statements.push(statement);
+    }
+    Ok(statements)
 }
 
-fn parse_expression(ps: &mut ParseState) -> ParseResult {
+fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    let peeked = peek(ps);
+
+    let response = match peeked.token_type {
+        Token::Print => {
+            advance(ps);
+            let expr = parse_expression(ps)?;
+            Stmt::Print(expr)
+        },
+        _ => {
+            Stmt::Expression(parse_expression(ps)?)
+        },
+    };
+
+    match &advance(ps).token_type {
+        Token::Semicolon | Token::Eof => Ok(response),
+        token @ _ => Err(ParseError{message: format!("Unexpected token when parsing statement: {}",token)}), 
+    }
+}
+
+fn parse_expression(ps: &mut ParseState) -> ParseExprResult {
     parse_equality(ps)
 }
 
-fn parse_equality(ps: &mut ParseState) -> ParseResult {
+fn parse_equality(ps: &mut ParseState) -> ParseExprResult {
     let mut expr = parse_comparison(ps)?;
 
     loop {
@@ -120,7 +191,7 @@ fn parse_equality(ps: &mut ParseState) -> ParseResult {
     }
 }
 
-fn parse_comparison(ps: &mut ParseState) -> ParseResult {
+fn parse_comparison(ps: &mut ParseState) -> ParseExprResult {
     let mut expr = parse_term(ps)?;
     loop {
         let peeked_token = peek(ps);
@@ -142,7 +213,7 @@ fn parse_comparison(ps: &mut ParseState) -> ParseResult {
     }
 }
 
-fn parse_term(ps: &mut ParseState) -> ParseResult {
+fn parse_term(ps: &mut ParseState) -> ParseExprResult {
     let mut expr = parse_factor(ps)?;
     loop {
         let peeked_token = peek(ps);
@@ -162,7 +233,7 @@ fn parse_term(ps: &mut ParseState) -> ParseResult {
     }
 }
 
-fn parse_factor(ps: &mut ParseState) -> ParseResult {
+fn parse_factor(ps: &mut ParseState) -> ParseExprResult {
     let mut expr = parse_unary(ps)?;
     loop {
         let peeked_token = peek(ps);
@@ -182,7 +253,7 @@ fn parse_factor(ps: &mut ParseState) -> ParseResult {
     }
 }
 
-fn parse_unary(ps: &mut ParseState) -> ParseResult {
+fn parse_unary(ps: &mut ParseState) -> ParseExprResult {
     let token = peek(ps);
 
     let unary_op = match &token.token_type {
@@ -203,7 +274,7 @@ fn parse_unary(ps: &mut ParseState) -> ParseResult {
 
 // This is for when a primary finds a left paren. Parse an expression and expect
 // a right paren.
-fn parse_group(ps: &mut ParseState) -> ParseResult {
+fn parse_group(ps: &mut ParseState) -> ParseExprResult {
     let expr = parse_expression(ps);
     let token = advance(ps);
 
@@ -218,7 +289,7 @@ fn parse_group(ps: &mut ParseState) -> ParseResult {
     }
 }
 
-fn parse_primary(ps: &mut ParseState) -> ParseResult {
+fn parse_primary(ps: &mut ParseState) -> ParseExprResult {
     let token = advance(ps);
 
     match &token.token_type {
@@ -235,6 +306,8 @@ fn parse_primary(ps: &mut ParseState) -> ParseResult {
 }
 
 // Helpers
+
+// You are at the end if you encounter the Eof token or there are no more tokens
 fn is_at_end(ps: &ParseState) -> bool {
     match ps.source.get(ps.current) {
         Some(token_instance) => match token_instance.token_type {

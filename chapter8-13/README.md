@@ -17,7 +17,8 @@ factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-### Updated
+### Updated to add statements
+complete at commit 13b96ef
 
 program -> statement* EOF ;
 statement -> exprStatement | printStatement ;
@@ -31,5 +32,19 @@ term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+
+### Updated to add declarations and variable usage
+
+program -> declaration* EOF ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+expression -> equality ;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
 

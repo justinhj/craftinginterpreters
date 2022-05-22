@@ -15,6 +15,9 @@ struct Opt {
     #[structopt(short = "p", long)]
     show_parse: bool,
 
+    #[structopt(short, long, help = "When false disable evaluation")]
+    eval_enabled: Option<bool>,
+
     #[structopt(parse(from_os_str))]
     inputfile: Option<PathBuf>,
 }
@@ -24,6 +27,7 @@ fn main() {
         show_scan,
         show_parse,
         inputfile,
+        eval_enabled,
     } = Opt::from_args();
 
     match inputfile {
@@ -43,9 +47,11 @@ fn main() {
                                     println!("\t{}", statement)
                                 }
                             }
-                            match eval_statements(&parsed) {
-                                Ok(_) => println!("Done"),
-                                Err(err) => println!("Error: {:?}", err),
+                            if eval_enabled.unwrap_or(true) {
+                                match eval_statements(&parsed) {
+                                    Ok(_) => println!("Done"),
+                                    Err(err) => println!("Error: {:?}", err),
+                                }
                             }
                         }
                         Err(err) => {
@@ -78,8 +84,10 @@ fn main() {
                                     if show_parse {
                                         println!("\nParsed AST:\n\n")
                                     }
-                                    let eval_result = eval_statements(&parsed);
-                                    println!("Eval result: {:?}", eval_result);
+                                    if eval_enabled.unwrap_or(true) {
+                                        let eval_result = eval_statements(&parsed);
+                                        println!("Eval result: {:?}", eval_result);
+                                    }
                                 }
                                 Err(err) => {
                                     println!("{:?}", err)

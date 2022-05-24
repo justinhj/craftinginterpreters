@@ -1,3 +1,7 @@
 // Test scripts with eol comments
-a = b; // Ignore the rest
-c = d;
+var a = 10;
+var b = 20;
+var c = 25;
+var d = 25;
+print a == b; // Ignore the rest
+print c == d;

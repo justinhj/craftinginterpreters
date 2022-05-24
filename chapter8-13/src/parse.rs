@@ -56,6 +56,7 @@ impl Display for Operator {
 
 #[derive(Debug)]
 pub enum Stmt {
+    VarDecl(String,Expr),
     Expression(Expr),
     Print(Expr),
 }
@@ -63,6 +64,8 @@ pub enum Stmt {
 impl Display for Stmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Stmt::VarDecl(ident,expr) =>
+                write!(f, "var {} = {};", ident, expr),
             Stmt::Expression(expr) =>
                 write!(f, "{};", expr),
             Stmt::Print(expr) =>
@@ -77,6 +80,7 @@ pub enum Expr {
     Unary(Operator, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
+    Variable(String),
 }
 
 impl Display for Expr {
@@ -86,6 +90,7 @@ impl Display for Expr {
             Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
+            Expr::Variable(name) => write!(f, "{}", name),
         }
     }
 }
@@ -116,18 +121,19 @@ struct ParseState<'a> {
 
 // Grammar
 // 
-// program -> statement* EOF ;
+// program -> declaration* EOF ;
+// declaration -> varDecl | statement ;
+// varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
 // statement -> exprStatement | printStatement ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
-// 
 // expression -> equality ;
 // equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term -> factor ( ( "-" | "+" ) ) factor )* ;
 // factor -> unary ( ( "/" | "*" ) ) unary )* ;
 // unary -> ( "!" | "-" ) unary | primary ;
-// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
 type ParseExprResult = Result<Expr, ParseError>;
 
@@ -139,10 +145,31 @@ pub fn parse(input: &[TokenInstance]) -> Result<Vec<Stmt>, ParseError> {
 
     let mut statements = vec!();
     while !is_at_end(&ps) {
-        let statement = parse_statement(&mut ps)?;
+        let statement = parse_declaration(&mut ps)?;
         statements.push(statement);
     }
     Ok(statements)
+}
+
+fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    match peek(ps).token_type.clone() {
+        Token::Var => {
+            advance(ps);
+            let ident = advance(ps).token_type.clone();
+            match ident {
+                Token::Identifier(ident) => {
+                    expect(ps, Token::Equal)?;
+                    let expr = parse_expression(ps)?;
+                    match advance(ps).token_type.clone() {
+                        Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(),expr)),
+                        token @ _ => Err(ParseError{message: format!("Unexpected token when parsing declaration: {}",token)}), 
+                    }
+                },
+                thing @ _ => return Err(ParseError{message:format!("Expected identifier, got {}", thing)}),
+            }
+        },
+        _ => parse_statement(ps)
+    }
 }
 
 fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
@@ -298,6 +325,7 @@ fn parse_primary(ps: &mut ParseState) -> ParseExprResult {
         Token::Nil => Ok(Expr::Literal(Value::Nil)),
         Token::Number(n) => Ok(Expr::Literal(Value::Number(*n))),
         Token::String(s) => Ok(Expr::Literal(Value::String(s.clone()))),
+        Token::Identifier(i) => Ok(Expr::Variable(i.to_string())),
         Token::LeftParen => parse_group(ps),
         _ => Err(ParseError {
             message: format!("Failed matching primary {:?} {}", token, token.line),
@@ -323,6 +351,15 @@ fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
         ps.current = ps.current + 1;
     }
     previous(ps)
+}
+
+fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
+    let next = advance(ps);
+    if next.token_type == token {
+        Ok(())
+    } else {
+        Err(ParseError{message:format!("Expected {} found {}", token, next.token_type)})
+    }
 }
 
 // TODO can remove these unwraps and return results

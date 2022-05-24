@@ -1,2 +1,2 @@
-// expression eval error
-1 + "Justin"
+// expression eval error cannot add number to string
+1 + "Justin";

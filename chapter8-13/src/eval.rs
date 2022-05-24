@@ -1,4 +1,5 @@
-use crate::eval::Expr::{Binary, Literal, Unary};
+use std::collections::HashMap;
+use crate::eval::Expr::{Binary, Literal, Unary, Variable, Grouping};
 use crate::parse::Operator;
 use crate::parse::{Stmt, Expr, Value};
 
@@ -30,10 +31,22 @@ fn numeric_value(value: &Value) -> Option<f64> {
 type EvalResult = Result<Value, RuntimeError>;
 
 pub fn eval_statements(stmts: &[Stmt]) -> Result<(), RuntimeError> {
+    // TODO with lifetimes could the symbol table deal exclusively with &str?
+    let mut symbols: HashMap<String,Value> = HashMap::new();
+
     for stmt in stmts {
         match stmt {
+            Stmt::VarDecl(id,expr) => {
+                match eval_expression(expr,&symbols) {
+                    Ok(value) => {
+                        symbols.insert(id.to_string(), value);
+                        ()
+                    },
+                    Err(err) => return Err(err),
+                }
+            },
             Stmt::Print(expr) => {
-                match eval_expression(expr) {
+                match eval_expression(expr,&symbols) {
                     Ok(value) => println!("{}",value),
                     Err(err) => {
                         return Err(err)
@@ -41,7 +54,7 @@ pub fn eval_statements(stmts: &[Stmt]) -> Result<(), RuntimeError> {
                 }
             },
             Stmt::Expression(expr) => {
-                match eval_expression(expr) {
+                match eval_expression(expr,&symbols) {
                     Ok(_) => (),
                     Err(err) => {
                         return Err(err)
@@ -54,11 +67,11 @@ pub fn eval_statements(stmts: &[Stmt]) -> Result<(), RuntimeError> {
 }
 
 #[rustfmt::skip]
-pub fn eval_expression(expr: &Expr) -> EvalResult {
+pub fn eval_expression(expr: &Expr, symbols: &HashMap<String,Value>) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
         Unary(operator, right) => {
-            let right = eval_expression(right)?;
+            let right = eval_expression(right,symbols)?;
             match operator {
                 Operator::Bang => {
                     let b = bool_value(&right);
@@ -78,8 +91,8 @@ pub fn eval_expression(expr: &Expr) -> EvalResult {
             }
         },
         Binary(left, operator, right) => {
-            let left = eval_expression(left)?;
-            let right = eval_expression(right)?;
+            let left = eval_expression(left,symbols)?;
+            let right = eval_expression(right,symbols)?;
             let left_number = numeric_value(&left);
             let right_number = numeric_value(&right);
 
@@ -101,10 +114,16 @@ pub fn eval_expression(expr: &Expr) -> EvalResult {
                 Operator::Slash => eval_arithmetic_operator( left, right, left_number, right_number, "/", |(a, b)| a / b),
                 _ => todo!(),
             }
-        }
-        _ => {
-            todo!()
-        }
+        },
+        Grouping(_) => {
+            todo!() // TODO why didn't I need grouping? :O
+        },
+        Variable(id) => {
+          match symbols.get(id) {
+              Some(value) => Ok(value.clone()),
+              None => Err(RuntimeError{message:format!("Using unknown symbol {}", id)}),
+          }
+        },
     }
 }
 

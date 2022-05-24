@@ -1,0 +1,4 @@
+// Declare and use variables
+var apple = 10;
+var bottle = 20;
+print apple + bottle ;

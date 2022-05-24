@@ -39,6 +39,10 @@ program -> declaration* EOF ;
 declaration -> varDecl | statement ;
 varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
 
+statement -> exprStatement | printStatement ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+
 expression -> equality ;
 equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;

@@ -302,11 +302,11 @@ fn parse_unary(ps: &mut ParseState) -> ParseExprResult {
 // This is for when a primary finds a left paren. Parse an expression and expect
 // a right paren.
 fn parse_group(ps: &mut ParseState) -> ParseExprResult {
-    let expr = parse_expression(ps);
+    let expr = parse_expression(ps)?;
     let token = advance(ps);
 
     match token.token_type {
-        Token::RightParen => expr,
+        Token::RightParen => Ok(Expr::Grouping(Box::new(expr))),
         _ => Err(ParseError {
             message: format!(
                 "Failed finding matching right paren {:?} {}",

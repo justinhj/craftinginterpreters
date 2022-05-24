@@ -82,7 +82,10 @@ fn main() {
                                 Ok(parsed) => {
                                     rl.add_history_entry(line.as_str());
                                     if show_parse {
-                                        println!("\nParsed AST:\n\n")
+                                        println!("\nParsed AST:\n\n");
+                                        for statement in &parsed {
+                                            println!("\t{}", statement)
+                                        }
                                     }
                                     if eval_enabled.unwrap_or(true) {
                                         let eval_result = eval_statements(&parsed);

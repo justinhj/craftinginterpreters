@@ -115,9 +115,7 @@ pub fn eval_expression(expr: &Expr, symbols: &HashMap<String,Value>) -> EvalResu
                 _ => todo!(),
             }
         },
-        Grouping(_) => {
-            todo!() // TODO why didn't I need grouping? :O
-        },
+        Grouping(expr) => eval_expression(expr,symbols),
         Variable(id) => {
           match symbols.get(id) {
               Some(value) => Ok(value.clone()),

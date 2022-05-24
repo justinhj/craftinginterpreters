@@ -17,8 +17,8 @@ factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-### Updated to add statements
-complete at commit 13b96ef
+### Updated to add statements (8.2.1)
+commit 13b96ef
 
 program -> statement* EOF ;
 statement -> exprStatement | printStatement ;
@@ -33,7 +33,8 @@ factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
-### Updated to add declarations and variable usage
+### Updated to add declarations and variable usage (section 8.2.1)
+commit 8628590
 
 program -> declaration* EOF ;
 declaration -> varDecl | statement ;
@@ -51,4 +52,24 @@ factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
+### Updated to add block syntax and semantics (section 8.5.2)
+commit 
 
+Note that statement now can be a block and block is defined...
+
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+statement -> exprStatement | printStatement | block ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+
+expression -> equality ;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;

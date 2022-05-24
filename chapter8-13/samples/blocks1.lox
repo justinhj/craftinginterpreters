@@ -1,0 +1,12 @@
+// blocks
+{
+    print "block 1";
+    {
+        var a = "block 2";
+        print a; 
+        {
+            print 3.14159 ;
+        }
+    }
+    print "block 1 again";
+}

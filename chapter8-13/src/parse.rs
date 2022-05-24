@@ -59,11 +59,19 @@ pub enum Stmt {
     VarDecl(String,Expr),
     Expression(Expr),
     Print(Expr),
+    Block(Vec<Stmt>),
 }
 
 impl Display for Stmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Stmt::Block(stmts) => {
+                write!(f, "{{\n")?;
+                for stmt in stmts {
+                    write!(f, "\t{}\n", stmt)?;
+                }
+                write!(f, "}}\n")
+            },
             Stmt::VarDecl(ident,expr) =>
                 write!(f, "var {} = {};", ident, expr),
             Stmt::Expression(expr) =>
@@ -121,10 +129,11 @@ struct ParseState<'a> {
 
 // Grammar
 // 
-// program -> declaration* EOF ;
+// program -> block* EOF ;
+// block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
-// statement -> exprStatement | printStatement ;
+// statement -> exprStatement | printStatement | block ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
 // expression -> equality ;
@@ -145,10 +154,35 @@ pub fn parse(input: &[TokenInstance]) -> Result<Vec<Stmt>, ParseError> {
 
     let mut statements = vec!();
     while !is_at_end(&ps) {
-        let statement = parse_declaration(&mut ps)?;
+        let statement = parse_block(&mut ps)?;
         statements.push(statement);
     }
     Ok(statements)
+}
+
+fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    let mut statements = vec!();
+    match peek(ps).token_type.clone() {
+        Token::LeftBrace => {
+            advance(ps);
+            loop {
+                match peek(ps).token_type.clone() {
+                    Token::RightBrace => {
+                        advance(ps);
+                        return Ok(Stmt::Block(statements))
+                    },
+                    Token::Eof => {
+                        return Err(ParseError{message:format!("Expected }} but reached end of input")})
+                    },
+                    _ => {
+                        let stmt = parse_block(ps)?;
+                        statements.push(stmt)
+                    },
+                }
+            }
+        },
+        _ => parse_declaration(ps),
+    }
 }
 
 fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {

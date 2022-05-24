@@ -45,6 +45,9 @@ pub fn eval_statements(stmts: &[Stmt]) -> Result<(), RuntimeError> {
                     Err(err) => return Err(err),
                 }
             },
+            Stmt::Block(stmts) => {
+                eval_statements(stmts)?;
+            },
             Stmt::Print(expr) => {
                 match eval_expression(expr,&symbols) {
                     Ok(value) => println!("{}",value),

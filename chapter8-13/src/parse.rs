@@ -1,6 +1,6 @@
-use std::fmt::Formatter;
 use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
+use std::fmt::Formatter;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -56,7 +56,7 @@ impl Display for Operator {
 
 #[derive(Debug)]
 pub enum Stmt {
-    VarDecl(String,Expr),
+    VarDecl(String, Expr),
     Expression(Expr),
     Print(Expr),
     Block(Vec<Stmt>),
@@ -71,13 +71,10 @@ impl Display for Stmt {
                     write!(f, "\t{}\n", stmt)?;
                 }
                 write!(f, "}}\n")
-            },
-            Stmt::VarDecl(ident,expr) =>
-                write!(f, "var {} = {};", ident, expr),
-            Stmt::Expression(expr) =>
-                write!(f, "{};", expr),
-            Stmt::Print(expr) =>
-                write!(f, "print {};",expr),
+            }
+            Stmt::VarDecl(ident, expr) => write!(f, "var {} = {};", ident, expr),
+            Stmt::Expression(expr) => write!(f, "{};", expr),
+            Stmt::Print(expr) => write!(f, "print {};", expr),
         }
     }
 }
@@ -128,7 +125,7 @@ struct ParseState<'a> {
 }
 
 // Grammar
-// 
+//
 // program -> block* EOF ;
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
@@ -152,7 +149,7 @@ pub fn parse(input: &[TokenInstance]) -> Result<Vec<Stmt>, ParseError> {
         current: 0,
     };
 
-    let mut statements = vec!();
+    let mut statements = vec![];
     while !is_at_end(&ps) {
         let statement = parse_block(&mut ps)?;
         statements.push(statement);
@@ -161,7 +158,7 @@ pub fn parse(input: &[TokenInstance]) -> Result<Vec<Stmt>, ParseError> {
 }
 
 fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
-    let mut statements = vec!();
+    let mut statements = vec![];
     match peek(ps).token_type.clone() {
         Token::LeftBrace => {
             advance(ps);
@@ -169,18 +166,20 @@ fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                 match peek(ps).token_type.clone() {
                     Token::RightBrace => {
                         advance(ps);
-                        return Ok(Stmt::Block(statements))
-                    },
+                        return Ok(Stmt::Block(statements));
+                    }
                     Token::Eof => {
-                        return Err(ParseError{message:format!("Expected }} but reached end of input")})
-                    },
+                        return Err(ParseError {
+                            message: format!("Expected }} but reached end of input"),
+                        })
+                    }
                     _ => {
                         let stmt = parse_block(ps)?;
                         statements.push(stmt)
-                    },
+                    }
                 }
             }
-        },
+        }
         _ => parse_declaration(ps),
     }
 }
@@ -195,14 +194,23 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                     expect(ps, Token::Equal)?;
                     let expr = parse_expression(ps)?;
                     match advance(ps).token_type.clone() {
-                        Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(),expr)),
-                        token @ _ => Err(ParseError{message: format!("Unexpected token when parsing declaration: {}",token)}), 
+                        Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(), expr)),
+                        token @ _ => Err(ParseError {
+                            message: format!(
+                                "Unexpected token when parsing declaration: {}",
+                                token
+                            ),
+                        }),
                     }
-                },
-                thing @ _ => return Err(ParseError{message:format!("Expected identifier, got {}", thing)}),
+                }
+                thing @ _ => {
+                    return Err(ParseError {
+                        message: format!("Expected identifier, got {}", thing),
+                    })
+                }
             }
-        },
-        _ => parse_statement(ps)
+        }
+        _ => parse_statement(ps),
     }
 }
 
@@ -214,15 +222,15 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             advance(ps);
             let expr = parse_expression(ps)?;
             Stmt::Print(expr)
-        },
-        _ => {
-            Stmt::Expression(parse_expression(ps)?)
-        },
+        }
+        _ => Stmt::Expression(parse_expression(ps)?),
     };
 
     match &advance(ps).token_type {
         Token::Semicolon | Token::Eof => Ok(response),
-        token @ _ => Err(ParseError{message: format!("Unexpected token when parsing statement: {}",token)}), 
+        token @ _ => Err(ParseError {
+            message: format!("Unexpected token when parsing statement: {}", token),
+        }),
     }
 }
 
@@ -392,7 +400,9 @@ fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
     if next.token_type == token {
         Ok(())
     } else {
-        Err(ParseError{message:format!("Expected {} found {}", token, next.token_type)})
+        Err(ParseError {
+            message: format!("Expected {} found {}", token, next.token_type),
+        })
     }
 }
 

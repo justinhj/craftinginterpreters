@@ -1,0 +1,16 @@
+// blocks
+{
+    var a = "Justin";
+    var b = "Parent scope";
+    print a;
+    {
+        var a = "Justin 2";
+        print a; 
+        {
+            var c = "nested deep";
+            print b;
+            print c;
+        }
+    }
+    print a;
+}

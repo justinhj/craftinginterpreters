@@ -1,4 +1,5 @@
 use rlox::eval::eval_statements;
+use rlox::eval::EvalState;
 use rlox::parse::parse;
 use rlox::scan::scan;
 use rustyline::error::ReadlineError;
@@ -48,7 +49,8 @@ fn main() {
                                 }
                             }
                             if eval_enabled.unwrap_or(true) {
-                                match eval_statements(&parsed) {
+                                let mut eval_state = EvalState::new();
+                                match eval_statements(&parsed, &mut eval_state) {
                                     Ok(_) => println!("Done"),
                                     Err(err) => println!("Error: {:?}", err),
                                 }
@@ -88,7 +90,8 @@ fn main() {
                                         }
                                     }
                                     if eval_enabled.unwrap_or(true) {
-                                        let eval_result = eval_statements(&parsed);
+                                        let mut eval_state = EvalState::new();
+                                        let eval_result = eval_statements(&parsed, &mut eval_state);
                                         println!("Eval result: {:?}", eval_result);
                                     }
                                 }

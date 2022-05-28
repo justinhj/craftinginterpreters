@@ -66,11 +66,11 @@ impl Display for Stmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Stmt::Block(stmts) => {
-                write!(f, "{{\n")?;
+                write!(f, "{{")?;
                 for stmt in stmts {
-                    write!(f, "\t{}\n", stmt)?;
+                    write!(f, "{}", stmt)?;
                 }
-                write!(f, "}}\n")
+                write!(f, "}}")
             }
             Stmt::VarDecl(ident, expr) => write!(f, "var {} = {};", ident, expr),
             Stmt::Expression(expr) => write!(f, "{};", expr),

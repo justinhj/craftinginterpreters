@@ -56,7 +56,7 @@ impl Display for Operator {
 
 #[derive(Debug)]
 pub enum Stmt {
-    VarDecl(String, Expr),
+    VarDecl(String, Option<Expr>),
     Expression(Expr),
     Print(Expr),
     Block(Vec<Stmt>),
@@ -72,7 +72,7 @@ impl Display for Stmt {
                 }
                 write!(f, "}}")
             }
-            Stmt::VarDecl(ident, expr) => write!(f, "var {} = {};", ident, expr),
+            Stmt::VarDecl(ident, expr) => write!(f, "var {} = {:?};", ident, expr),
             Stmt::Expression(expr) => write!(f, "{};", expr),
             Stmt::Print(expr) => write!(f, "print {};", expr),
         }
@@ -190,19 +190,31 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             advance(ps);
             let ident = advance(ps).token_type.clone();
             match ident {
-                Token::Identifier(ident) => {
-                    expect(ps, Token::Equal)?;
-                    let expr = parse_expression(ps)?;
-                    match advance(ps).token_type.clone() {
-                        Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(), expr)),
-                        token @ _ => Err(ParseError {
-                            message: format!(
-                                "Unexpected token when parsing declaration: {}",
-                                token
-                            ),
-                        }),
+                Token::Identifier(ident) => match advance(ps).token_type.clone() {
+                    Token::Equal => {
+                        let expr = parse_expression(ps)?;
+                        match advance(ps).token_type.clone() {
+                            Token::Semicolon | Token::Eof => {
+                                Ok(Stmt::VarDecl(ident.to_string(), Some(expr)))
+                            }
+                            token @ _ => Err(ParseError {
+                                message: format!(
+                                    "Unexpected token when parsing declaration: {}",
+                                    token
+                                ),
+                            }),
+                        }
+                    },
+                    Token::Semicolon | Token::Eof => {
+                        Ok(Stmt::VarDecl(ident.to_string(), None))
                     }
-                }
+                    token @ _ => Err(ParseError {
+                        message: format!(
+                            "Unexpected token when parsing declaration: {}",
+                            token
+                        ),
+                    }),
+                },
                 thing @ _ => {
                     return Err(ParseError {
                         message: format!("Expected identifier, got {}", thing),

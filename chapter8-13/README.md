@@ -73,3 +73,13 @@ term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+
+### Challenges
+
+2. Have a runtime error for accessing uninitialized variables.
+
+To support this I need to allow varDecl without initializer expression, which I didn't, whoops!
+Then it should store values in the symbol table as Options and use None to represent uninitialized.
+
+
+

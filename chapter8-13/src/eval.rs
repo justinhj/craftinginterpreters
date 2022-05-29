@@ -31,7 +31,7 @@ type EvalResult = Result<Value, RuntimeError>;
 #[derive(Debug)]
 pub struct EvalState<'a> {
     parent: Option<&'a EvalState<'a>>,
-    symbols: HashMap<&'a str, Value>,
+    symbols: HashMap<&'a str, Option<Value>>,
 }
 
 impl<'a> EvalState<'a> {
@@ -47,11 +47,12 @@ impl<'a> EvalState<'a> {
             symbols: HashMap::new(),
         }
     }
-    pub fn lookup(self: &Self, key: &str) -> Option<Value> {
+    pub fn lookup(self: &Self, key: &str) -> EvalResult {
         match (self.symbols.get(&key), self.parent) {
-            (Some(value), _) => Some(value.clone()),
+            (Some(Some(value)), _) => Ok(value.clone()),
+            (Some(None), _) => Err(RuntimeError{message:format!("Unitialized variable access: {}", key)}),
             (None, Some(parent)) => parent.lookup(key),
-            (None, None) => None,
+            (None, None) => Err(RuntimeError{message:format!("Unknown variable access: {}", key)}),
         }
     }
 }
@@ -64,12 +65,15 @@ pub fn eval_statements(
 
     for stmt in stmts {
         match stmt {
-            Stmt::VarDecl(id, expr) => match eval_expression(expr, &eval_state) {
+            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, &eval_state) {
                 Ok(value) => {
-                    eval_state.symbols.insert(id, value);
+                    eval_state.symbols.insert(id, Some(value));
                 }
                 Err(err) => return Err(err),
             },
+            Stmt::VarDecl(id, None) => {
+                eval_state.symbols.insert(id, None);
+            }
             Stmt::Block(stmts) => {
                 eval_statements(stmts, &mut eval_state)?;
             }
@@ -138,8 +142,8 @@ pub fn eval_expression(expr: &Expr, eval_state: &EvalState) -> EvalResult {
         Grouping(expr) => eval_expression(expr,eval_state),
         Variable(id) => {
           match eval_state.lookup(id) {
-              Some(value) => Ok(value.clone()),
-              None => Err(RuntimeError{message:format!("Using unknown symbol {}", id)}),
+              Ok(value) => Ok(value.clone()),
+              err @ Err(_) => err,
           }
         },
     }

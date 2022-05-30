@@ -204,15 +204,10 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                                 ),
                             }),
                         }
-                    },
-                    Token::Semicolon | Token::Eof => {
-                        Ok(Stmt::VarDecl(ident.to_string(), None))
                     }
+                    Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(), None)),
                     token @ _ => Err(ParseError {
-                        message: format!(
-                            "Unexpected token when parsing declaration: {}",
-                            token
-                        ),
+                        message: format!("Unexpected token when parsing declaration: {}", token),
                     }),
                 },
                 thing @ _ => {

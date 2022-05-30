@@ -50,9 +50,13 @@ impl<'a> EvalState<'a> {
     pub fn lookup(self: &Self, key: &str) -> EvalResult {
         match (self.symbols.get(&key), self.parent) {
             (Some(Some(value)), _) => Ok(value.clone()),
-            (Some(None), _) => Err(RuntimeError{message:format!("Unitialized variable access: {}", key)}),
+            (Some(None), _) => Err(RuntimeError {
+                message: format!("Unitialized variable access: {}", key),
+            }),
             (None, Some(parent)) => parent.lookup(key),
-            (None, None) => Err(RuntimeError{message:format!("Unknown variable access: {}", key)}),
+            (None, None) => Err(RuntimeError {
+                message: format!("Unknown variable access: {}", key),
+            }),
         }
     }
 }

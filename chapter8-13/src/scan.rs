@@ -754,10 +754,10 @@ mod tests {
         let s4: f64 = 100.123;
         let s5: f64 = 100.1234;
 
-        assert_eq!(num_format(s1), "100.0".to_string());
-        assert_eq!(num_format(s2), "100.1".to_string());
-        assert_eq!(num_format(s3), "100.12".to_string());
-        assert_eq!(num_format(s4), "100.123".to_string());
-        assert_eq!(num_format(s5), "100.123".to_string());
+        assert_eq! {num_format(s1), "100.0".to_string()}
+        assert_eq! {num_format(s2), "100.1".to_string()}
+        assert_eq! {num_format(s3), "100.12".to_string()}
+        assert_eq! {num_format(s4), "100.123".to_string()}
+        assert_eq! {num_format(s5), "100.123".to_string()}
     }
 }

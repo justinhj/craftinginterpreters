@@ -53,7 +53,7 @@ unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
 ### Updated to add block syntax and semantics (section 8.5.2)
-commit 
+commit 08438c0
 
 Note that statement now can be a block and block is defined...
 
@@ -81,5 +81,25 @@ primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDE
 To support this I need to allow varDecl without initializer expression, which I didn't, whoops!
 Then it should store values in the symbol table as Options and use None to represent uninitialized.
 
+### Assignment
+commit
 
+This last grammar change in chapter 8 allows assignment to existing variables rather than just declaration.
 
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+statement -> exprStatement | printStatement | block ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+
+expression -> assignment ;
+assignment -> IDENTIFIER "=" assignment | equality;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
+primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;

@@ -1,4 +1,4 @@
-use crate::eval::Expr::{Binary, Grouping, Literal, Unary, Variable};
+use crate::eval::Expr::{Binary, Grouping, Literal, Unary, Variable, Assign};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::collections::HashMap;
@@ -49,6 +49,9 @@ impl EvalState {
             symbols: HashMap::new(),
         }
     }
+    /// lookup finds the key in the current block's symbol table and
+    /// then looks in the parent table and so on until it runs out of
+    /// places to look
     pub fn lookup(self: &Self, key: &str) -> EvalResult {
         match (self.symbols.get(&key.to_string()), &self.parent) {
             (Some(Some(value)), _) => Ok(value.clone()),
@@ -59,6 +62,24 @@ impl EvalState {
             (None, None) => Err(RuntimeError {
                 message: format!("Unknown variable access: {}", key),
             }),
+        }
+    }
+    /// assign gives variable `key` the value `value`, finding the variable
+    /// in the same way that lookup does
+    pub fn assign(self: &mut Self, key: &str, value: &Value) -> EvalResult {
+        let key_string = key.to_string();
+        let found = self.symbols.get(&key_string).is_some();
+
+        if found {
+            self.symbols.insert(key_string, Some(value.clone()));
+            Ok(value.clone())
+        } else {
+            match &self.parent {
+                Some(p) => p.borrow_mut().assign(key, value),
+                None => {
+                    Err(RuntimeError{message: format!("Assignent to unknown variable {}", key)})
+                }
+            }
         }
     }
 }
@@ -145,12 +166,17 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
                 _ => todo!(),
             }
         },
-        Grouping(expr) => eval_expression(expr,eval_state),
+        Grouping(expr) => eval_expression(expr,Rc::clone(&eval_state)),
         Variable(id) => {
           match eval_state.borrow().lookup(id) {
               Ok(value) => Ok(value.clone()),
               err @ Err(_) => err,
           }
+        },
+        Assign(id, expr) => {
+            let value = eval_expression(expr, Rc::clone(&eval_state))?;
+            eval_state.borrow_mut().assign(id,&value)?;
+            Ok(value.clone())
         },
     }
 }

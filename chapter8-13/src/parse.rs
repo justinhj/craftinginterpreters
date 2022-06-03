@@ -81,6 +81,7 @@ impl Display for Stmt {
 
 #[derive(Debug)]
 pub enum Expr {
+    Assign(String,Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
     Unary(Operator, Box<Expr>),
     Grouping(Box<Expr>),
@@ -91,6 +92,7 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Expr::Assign(ident,expr) => write!(f, "(set {} {})", ident, expr),
             Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
             Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),

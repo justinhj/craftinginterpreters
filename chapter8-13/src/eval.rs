@@ -2,6 +2,8 @@ use crate::eval::Expr::{Binary, Grouping, Literal, Unary, Variable};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -29,31 +31,31 @@ fn numeric_value(value: &Value) -> Option<f64> {
 type EvalResult = Result<Value, RuntimeError>;
 
 #[derive(Debug)]
-pub struct EvalState<'a> {
-    parent: Option<&'a EvalState<'a>>,
-    symbols: HashMap<&'a str, Option<Value>>,
+pub struct EvalState {
+    parent: Option<Rc<RefCell<EvalState>>>,
+    symbols: HashMap<String, Option<Value>>,
 }
 
-impl<'a> EvalState<'a> {
+impl EvalState {
     pub fn new() -> Self {
         EvalState {
             parent: None,
             symbols: HashMap::new(),
         }
     }
-    pub fn new_from_parent(parent: &'a EvalState<'a>) -> Self {
+    pub fn new_from_parent(parent: Rc<RefCell<EvalState>>) -> Self {
         EvalState {
             parent: Some(parent),
             symbols: HashMap::new(),
         }
     }
     pub fn lookup(self: &Self, key: &str) -> EvalResult {
-        match (self.symbols.get(&key), self.parent) {
+        match (self.symbols.get(&key.to_string()), &self.parent) {
             (Some(Some(value)), _) => Ok(value.clone()),
             (Some(None), _) => Err(RuntimeError {
                 message: format!("Unitialized variable access: {}", key),
             }),
-            (None, Some(parent)) => parent.lookup(key),
+            (None, Some(parent)) => parent.borrow().lookup(key),
             (None, None) => Err(RuntimeError {
                 message: format!("Unknown variable access: {}", key),
             }),
@@ -63,29 +65,29 @@ impl<'a> EvalState<'a> {
 
 pub fn eval_statements(
     stmts: &[Stmt],
-    parent_eval_state: &mut EvalState,
+    parent_eval_state: Rc<RefCell<EvalState>>
 ) -> Result<(), RuntimeError> {
-    let mut eval_state = EvalState::new_from_parent(parent_eval_state);
+    let mut eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(&parent_eval_state))));
 
     for stmt in stmts {
         match stmt {
-            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, &eval_state) {
+            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, Rc::clone(&eval_state)) {
                 Ok(value) => {
-                    eval_state.symbols.insert(id, Some(value));
+                    eval_state.borrow_mut().symbols.insert(id.to_string(), Some(value));
                 }
                 Err(err) => return Err(err),
             },
             Stmt::VarDecl(id, None) => {
-                eval_state.symbols.insert(id, None);
+                eval_state.borrow_mut().symbols.insert(id.to_string(), None);
             }
             Stmt::Block(stmts) => {
-                eval_statements(stmts, &mut eval_state)?;
+                eval_statements(stmts, Rc::clone(&eval_state))?;
             }
-            Stmt::Print(expr) => match eval_expression(expr, &mut eval_state) {
+            Stmt::Print(expr) => match eval_expression(expr, Rc::clone(&eval_state)) {
                 Ok(value) => println!("{}", value),
                 Err(err) => return Err(err),
             },
-            Stmt::Expression(expr) => match eval_expression(expr, &mut eval_state) {
+            Stmt::Expression(expr) => match eval_expression(expr, Rc::clone(&eval_state)) {
                 Ok(_) => (),
                 Err(err) => return Err(err),
             },
@@ -95,7 +97,7 @@ pub fn eval_statements(
 }
 
 #[rustfmt::skip]
-pub fn eval_expression(expr: &Expr, eval_state: &EvalState) -> EvalResult {
+pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
         Unary(operator, right) => {
@@ -119,7 +121,7 @@ pub fn eval_expression(expr: &Expr, eval_state: &EvalState) -> EvalResult {
             }
         },
         Binary(left, operator, right) => {
-            let left = eval_expression(left,eval_state)?;
+            let left = eval_expression(left,Rc::clone(&eval_state))?;
             let right = eval_expression(right,eval_state)?;
             let left_number = numeric_value(&left);
             let right_number = numeric_value(&right);
@@ -145,7 +147,7 @@ pub fn eval_expression(expr: &Expr, eval_state: &EvalState) -> EvalResult {
         },
         Grouping(expr) => eval_expression(expr,eval_state),
         Variable(id) => {
-          match eval_state.lookup(id) {
+          match eval_state.borrow().lookup(id) {
               Ok(value) => Ok(value.clone()),
               err @ Err(_) => err,
           }

@@ -135,7 +135,8 @@ struct ParseState<'a> {
 // statement -> exprStatement | printStatement | block ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
-// expression -> equality ;
+// expression -> assignment ;
+// assignment -> IDENTIFIER "=" assignment | equality;
 // equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term -> factor ( ( "-" | "+" ) ) factor )* ;
@@ -244,7 +245,26 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
 }
 
 fn parse_expression(ps: &mut ParseState) -> ParseExprResult {
-    parse_equality(ps)
+    parse_assignment(ps)
+}
+
+fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
+    let expr = parse_equality(ps)?;
+
+    match peek(ps).token_type.clone() {
+        Token::Equal => {
+            advance(ps);
+            let value = parse_assignment(ps)?;
+
+            let name = match expr {
+                Expr::Variable(name) => name,
+                _ => return Err(ParseError{message:format!("Tried to assign to not a variable: {}", expr)}),
+            };
+
+            Ok(Expr::Assign(name, Box::new(value)))
+        },
+        _ => Ok(expr)
+    }
 }
 
 fn parse_equality(ps: &mut ParseState) -> ParseExprResult {

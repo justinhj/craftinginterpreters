@@ -87,9 +87,10 @@ impl Display for Stmt {
 pub enum Expr {
     Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
-    Unary(Operator, Box<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
+    Logical(Box<Expr>, Operator, Box<Expr>),
+    Unary(Operator, Box<Expr>),
     Variable(String),
 }
 
@@ -98,9 +99,10 @@ impl Display for Expr {
         match self {
             Expr::Assign(ident, expr) => write!(f, "(set {} {})", ident, expr),
             Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
-            Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
+            Expr::Logical(l, operator, r) => write!(f, "{} {} {}", l, operator, r),
+            Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Variable(name) => write!(f, "{}", name),
         }
     }
@@ -141,7 +143,9 @@ struct ParseState<'a> {
 // printStatement -> print expression ";" ;
 // ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
 // expression -> assignment ;
-// assignment -> IDENTIFIER "=" assignment | equality;
+// assignment -> IDENTIFIER "=" assignment | logic_or;
+// logic_or -> logic_and ( "or" logic_and )* ;
+// logic_and -> equality  ( "and" equality ) ;
 // equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term -> factor ( ( "-" | "+" ) ) factor )* ;
@@ -274,7 +278,8 @@ fn parse_expression(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
-    let expr = parse_equality(ps)?;
+    println!("parse_assignment");
+    let expr = parse_or(ps)?;
 
     match peek(ps).token_type.clone() {
         Token::Equal => {
@@ -297,6 +302,7 @@ fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_equality(ps: &mut ParseState) -> ParseExprResult {
+    println!("parse_equality");
     let mut expr = parse_comparison(ps)?;
 
     loop {
@@ -314,6 +320,38 @@ fn parse_equality(ps: &mut ParseState) -> ParseExprResult {
                 expr = Expr::Binary(Box::new(expr), operator, Box::new(right))
             }
             None => return Ok(expr),
+        }
+    }
+}
+
+fn parse_or(ps: &mut ParseState) -> ParseExprResult {
+    println!("parse_or");
+    let mut expr = parse_and(ps)?;
+    loop {
+        let peeked_token = peek(ps);
+        match peeked_token.token_type {
+            Token::Or => {
+                advance(ps);
+                let right = parse_and(ps)?;
+                expr = Expr::Logical(Box::new(expr),Operator::Or,Box::new(right));
+            },
+            _ => return Ok(expr),
+        }
+    }
+}
+
+fn parse_and(ps: &mut ParseState) -> ParseExprResult {
+    println!("parse_and");
+    let mut expr = parse_equality(ps)?;
+    loop {
+        let peeked_token = peek(ps);
+        match peeked_token.token_type {
+            Token::And => {
+                advance(ps);
+                let right = parse_equality(ps)?;
+                expr = Expr::Logical(Box::new(expr),Operator::And,Box::new(right));
+            },
+            _ => return Ok(expr)
         }
     }
 }

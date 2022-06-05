@@ -1,4 +1,4 @@
-use crate::eval::Expr::{Assign, Binary, Grouping, Literal, Unary, Variable};
+use crate::eval::Expr::{Assign, Binary, Grouping, Literal, Logical, Unary, Variable};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::cell::RefCell;
@@ -178,6 +178,17 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
                 Operator::Star => eval_arithmetic_operator( left, right, left_number, right_number, "*", |(a, b)| a * b),
                 Operator::Slash => eval_arithmetic_operator( left, right, left_number, right_number, "/", |(a, b)| a / b),
                 _ => todo!(),
+            }
+        },
+        Logical(left,operator,right) => {
+            let left = eval_expression(left,Rc::clone(&eval_state))?;
+            match operator {
+                Operator::And if bool_value(&left) == false => Ok(left),
+                Operator::Or if bool_value(&left) == true => Ok(left),
+                Operator::Or | Operator::And => {
+                    eval_expression(right,Rc::clone(&eval_state))
+                },
+                _ => Err(RuntimeError{message:format!("Unexpected logical operator : {}", operator)}),
             }
         },
         Grouping(expr) => eval_expression(expr,Rc::clone(&eval_state)),

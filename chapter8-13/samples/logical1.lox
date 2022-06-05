@@ -1,0 +1,10 @@
+// Logical expressions
+var f1 = true and false;
+var f2 = true and true;
+var f3 = true or false;
+var f4 = false or true;
+print "f1 "; print f1;
+print "f2 "; print f2;
+print "f3 "; print f3;
+print "f4 "; print f4;
+

@@ -127,3 +127,27 @@ term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 
+### And Or (logical operators)
+commit 
+
+logic_or and logic_and added below
+
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+statement -> exprStatement | printStatement | ifStatement | block ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
+expression -> assignment ;
+assignment -> IDENTIFIER "=" assignment | logic_or;
+logic_or -> logic_and ( "or" logic_and )* ;
+logic_and -> equality  ( "and" equality ) ;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+u

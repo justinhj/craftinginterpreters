@@ -128,7 +128,7 @@ factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 
 ### And Or (logical operators)
-commit 
+commit 5641fbb
 
 logic_or and logic_and added below
 
@@ -150,4 +150,7 @@ equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
-u
+
+
+
+

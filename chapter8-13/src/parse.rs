@@ -76,8 +76,8 @@ impl Display for Stmt {
             Stmt::VarDecl(ident, expr) => write!(f, "var {} = {:?};", ident, expr),
             Stmt::Expression(expr) => write!(f, "{};", expr),
             Stmt::Print(expr) => write!(f, "print {};", expr),
-            Stmt::If(cond, thenStmt, elseStmt) => {
-                write!(f, "if {} then {:?} else {:?}", cond, thenStmt, elseStmt)
+            Stmt::If(cond, then_stmt, else_stmt) => {
+                write!(f, "if {} then {:?} else {:?}", cond, then_stmt, else_stmt)
             }
         }
     }
@@ -182,7 +182,7 @@ fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                     }
                     Token::Eof => {
                         return Err(ParseError {
-                            message: format!("Expected }} but reached end of input"),
+                            message: "Expected }} but reached end of input".to_string(),
                         })
                     }
                     _ => {
@@ -200,15 +200,13 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     match peek(ps).token_type.clone() {
         Token::Var => {
             advance(ps);
-            let ident = advance(ps).token_type.clone();
-            match ident {
+            let token = advance(ps).token_type.clone();
+            match token {
                 Token::Identifier(ident) => match advance(ps).token_type.clone() {
                     Token::Equal => {
                         let expr = parse_expression(ps)?;
                         match advance(ps).token_type.clone() {
-                            Token::Semicolon | Token::Eof => {
-                                Ok(Stmt::VarDecl(ident.to_string(), Some(expr)))
-                            }
+                            Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident, Some(expr))),
                             token @ _ => Err(ParseError {
                                 message: format!(
                                     "Unexpected token when parsing declaration: {}",
@@ -217,7 +215,7 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                             }),
                         }
                     }
-                    Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident.to_string(), None)),
+                    Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident, None)),
                     token @ _ => Err(ParseError {
                         message: format!("Unexpected token when parsing declaration: {}", token),
                     }),
@@ -241,11 +239,11 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             advance(ps);
             let expr = parse_expression(ps)?;
             Stmt::Print(expr)
-        },
+        }
         Token::If => {
             advance(ps);
-            return parse_if(ps)
-        },
+            return parse_if(ps);
+        }
         _ => Stmt::Expression(parse_expression(ps)?),
     };
 
@@ -258,18 +256,18 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
 }
 
 fn parse_if(ps: &mut ParseState) -> Result<Stmt, ParseError> {
-    expect(ps,Token::LeftParen)?;
+    expect(ps, Token::LeftParen)?;
     let cond = parse_expression(ps)?;
-    expect(ps,Token::RightParen)?;
+    expect(ps, Token::RightParen)?;
     let then_stmt = parse_block(ps)?;
 
     match peek(ps).token_type.clone() {
         Token::Else => {
             advance(ps);
             let else_stmt = parse_block(ps)?;
-            Ok(Stmt::If(cond, vec!(then_stmt), vec!(else_stmt)))
-        },
-        _ => Ok(Stmt::If(cond, vec!(then_stmt), vec!())),
+            Ok(Stmt::If(cond, vec![then_stmt], vec![else_stmt]))
+        }
+        _ => Ok(Stmt::If(cond, vec![then_stmt], vec![])),
     }
 }
 
@@ -333,8 +331,8 @@ fn parse_or(ps: &mut ParseState) -> ParseExprResult {
             Token::Or => {
                 advance(ps);
                 let right = parse_and(ps)?;
-                expr = Expr::Logical(Box::new(expr),Operator::Or,Box::new(right));
-            },
+                expr = Expr::Logical(Box::new(expr), Operator::Or, Box::new(right));
+            }
             _ => return Ok(expr),
         }
     }
@@ -349,9 +347,9 @@ fn parse_and(ps: &mut ParseState) -> ParseExprResult {
             Token::And => {
                 advance(ps);
                 let right = parse_equality(ps)?;
-                expr = Expr::Logical(Box::new(expr),Operator::And,Box::new(right));
-            },
-            _ => return Ok(expr)
+                expr = Expr::Logical(Box::new(expr), Operator::And, Box::new(right));
+            }
+            _ => return Ok(expr),
         }
     }
 }
@@ -476,17 +474,14 @@ fn parse_primary(ps: &mut ParseState) -> ParseExprResult {
 // You are at the end if you encounter the Eof token or there are no more tokens
 fn is_at_end(ps: &ParseState) -> bool {
     match ps.source.get(ps.current) {
-        Some(token_instance) => match token_instance.token_type {
-            Token::Eof => true,
-            _ => false,
-        },
+        Some(token_instance) => matches!(token_instance.token_type, Token::Eof),
         _ => false,
     }
 }
 
 fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     if !is_at_end(ps) {
-        ps.current = ps.current + 1;
+        ps.current += 1;
     }
     previous(ps)
 }

@@ -72,7 +72,7 @@ pub fn num_format(num: f64) -> String {
     if let Some(non_zero_pos) = s.rfind(|c: char| c != '0') {
         let zero_count = s.len() - (non_zero_pos + 1);
         let count = std::cmp::min(zero_count, 2);
-        return s[0..s.len() - count].to_string();
+        s[0..s.len() - count].to_string()
     } else {
         panic!("Unexpected number format {:?}", s);
     }
@@ -200,15 +200,11 @@ fn begin_scan(source: &str) -> ScanState {
 }
 
 fn is_scan_done(state: &ScanState) -> bool {
-    if state.current == state.source.len() {
-        true
-    } else {
-        false
-    }
+    state.current == state.source.len()
 }
 
 fn peek(state: &ScanState) -> char {
-    if is_scan_done(&state) {
+    if is_scan_done(state) {
         '\0'
     } else {
         state.source.chars().nth(state.current).unwrap()
@@ -286,7 +282,7 @@ fn scan_next(state: &mut ScanState) -> Result<(), ScanError> {
         m if m.is_ascii_alphabetic() || m == '_' => identifier_or_keyword_scanner(state),
         // String literals
         '"' => string_scanner(state),
-        _ => return Err(ScanError::UnexpectedChar(next_char)),
+        _ => Err(ScanError::UnexpectedChar(next_char)),
     }
 }
 
@@ -316,7 +312,7 @@ lazy_static! {
 fn string_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     while peek(state) != '"' && !is_scan_done(state) {
         if peek(state) == '\n' {
-            state.line = state.line + 1;
+            state.line += 1;
         }
         advance(state);
     }
@@ -377,7 +373,7 @@ fn number_scanner(state: &mut ScanState) -> Result<(), ScanError> {
     }
 
     let number_str = &state.source[state.start..state.current];
-    match str::parse::<f64>(&number_str) {
+    match str::parse::<f64>(number_str) {
         Ok(value) => {
             state.tokens.push(TokenInstance {
                 token_type: Token::Number(value),
@@ -440,7 +436,7 @@ fn single_or_double_character_scanner(
 }
 
 fn skip_character_new_line(state: &mut ScanState) -> Result<(), ScanError> {
-    state.line = state.line + 1;
+    state.line += 1;
     Ok(())
 }
 

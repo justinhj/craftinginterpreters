@@ -14,11 +14,7 @@ pub struct RuntimeError {
 // boolean false, everything else is true
 // TODO it's really an error if this is not a value so maybe this should return RuntimeError?
 fn bool_value(value: &Value) -> bool {
-    if matches!(value, Value::Boolean(false)) || matches!(value, Value::Nil) {
-        false
-    } else {
-        true
-    }
+    !(matches!(value, Value::Boolean(false)) || matches!(value, Value::Nil))
 }
 
 fn numeric_value(value: &Value) -> Option<f64> {
@@ -35,6 +31,12 @@ pub struct EvalState {
     parent: Option<Rc<RefCell<EvalState>>>,
     symbols: HashMap<String, Option<Value>>,
 }
+
+impl Default for EvalState {
+     fn default() -> Self {
+         Self::new()
+     }
+ }
 
 impl EvalState {
     pub fn new() -> Self {
@@ -183,8 +185,8 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
         Logical(left,operator,right) => {
             let left = eval_expression(left,Rc::clone(&eval_state))?;
             match operator {
-                Operator::And if bool_value(&left) == false => Ok(left),
-                Operator::Or if bool_value(&left) == true => Ok(left),
+                Operator::And if !bool_value(&left) => Ok(left),
+                Operator::Or if bool_value(&left) => Ok(left),
                 Operator::Or | Operator::And => {
                     eval_expression(right,Rc::clone(&eval_state))
                 },
@@ -194,14 +196,14 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
         Grouping(expr) => eval_expression(expr,Rc::clone(&eval_state)),
         Variable(id) => {
           match eval_state.borrow().lookup(id) {
-              Ok(value) => Ok(value.clone()),
+              Ok(value) => Ok(value),
               err @ Err(_) => err,
           }
         },
         Assign(id, expr) => {
             let value = eval_expression(expr, Rc::clone(&eval_state))?;
             eval_state.borrow_mut().assign(id,&value)?;
-            Ok(value.clone())
+            Ok(value)
         },
     }
 }

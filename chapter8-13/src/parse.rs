@@ -60,6 +60,7 @@ pub enum Stmt {
     Expression(Expr),
     Print(Expr),
     Block(Vec<Stmt>),
+    If(Expr, Vec<Stmt>, Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -75,13 +76,16 @@ impl Display for Stmt {
             Stmt::VarDecl(ident, expr) => write!(f, "var {} = {:?};", ident, expr),
             Stmt::Expression(expr) => write!(f, "{};", expr),
             Stmt::Print(expr) => write!(f, "print {};", expr),
+            Stmt::If(cond, thenStmt, elseStmt) => {
+                write!(f, "if {} then {:?} else {:?}", cond, thenStmt, elseStmt)
+            }
         }
     }
 }
 
 #[derive(Debug)]
 pub enum Expr {
-    Assign(String,Box<Expr>),
+    Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
     Unary(Operator, Box<Expr>),
     Grouping(Box<Expr>),
@@ -92,7 +96,7 @@ pub enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Assign(ident,expr) => write!(f, "(set {} {})", ident, expr),
+            Expr::Assign(ident, expr) => write!(f, "(set {} {})", ident, expr),
             Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
             Expr::Unary(operator, expr) => write!(f, "({} {})", operator, expr),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
@@ -132,9 +136,10 @@ struct ParseState<'a> {
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
-// statement -> exprStatement | printStatement | block ;
+// statement -> exprStatement | printStatement | ifStatement | block ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
+// ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
 // expression -> assignment ;
 // assignment -> IDENTIFIER "=" assignment | equality;
 // equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
@@ -232,7 +237,11 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             advance(ps);
             let expr = parse_expression(ps)?;
             Stmt::Print(expr)
-        }
+        },
+        Token::If => {
+            advance(ps);
+            return parse_if(ps)
+        },
         _ => Stmt::Expression(parse_expression(ps)?),
     };
 
@@ -241,6 +250,22 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         token @ _ => Err(ParseError {
             message: format!("Unexpected token when parsing statement: {}", token),
         }),
+    }
+}
+
+fn parse_if(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    expect(ps,Token::LeftParen)?;
+    let cond = parse_expression(ps)?;
+    expect(ps,Token::RightParen)?;
+    let then_stmt = parse_block(ps)?;
+
+    match peek(ps).token_type.clone() {
+        Token::Else => {
+            advance(ps);
+            let else_stmt = parse_block(ps)?;
+            Ok(Stmt::If(cond, vec!(then_stmt), vec!(else_stmt)))
+        },
+        _ => Ok(Stmt::If(cond, vec!(then_stmt), vec!())),
     }
 }
 
@@ -258,12 +283,16 @@ fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
 
             let name = match expr {
                 Expr::Variable(name) => name,
-                _ => return Err(ParseError{message:format!("Tried to assign to not a variable: {}", expr)}),
+                _ => {
+                    return Err(ParseError {
+                        message: format!("Tried to assign to not a variable: {}", expr),
+                    })
+                }
             };
 
             Ok(Expr::Assign(name, Box::new(value)))
-        },
-        _ => Ok(expr)
+        }
+        _ => Ok(expr),
     }
 }
 
@@ -435,7 +464,7 @@ fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
     }
 }
 
-// TODO can remove these unwraps and return results
+// TODO could remove these unwraps and return results
 
 fn previous<'a>(ps: &'a ParseState) -> &'a TokenInstance {
     ps.source.get(ps.current - 1).unwrap()

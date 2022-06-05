@@ -82,7 +82,7 @@ To support this I need to allow varDecl without initializer expression, which I 
 Then it should store values in the symbol table as Options and use None to represent uninitialized.
 
 ### Assignment
-commit
+commit 80a69a6
 
 This last grammar change in chapter 8 allows assignment to existing variables rather than just declaration.
 
@@ -103,3 +103,27 @@ term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 unary -> ( "!" | "-" ) unary | primary ;
 primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+
+### Conditional statements
+commit 
+
+Here we add if else statements
+
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+statement -> exprStatement | printStatement | ifStatement | block ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
+expression -> assignment ;
+assignment -> IDENTIFIER "=" assignment | equality;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
+

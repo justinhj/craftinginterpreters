@@ -1,0 +1,4 @@
+// Simple if
+if( 2 < 3 ) {
+    print "slay!";
+}

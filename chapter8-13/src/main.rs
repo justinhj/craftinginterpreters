@@ -4,10 +4,10 @@ use rlox::parse::parse;
 use rlox::scan::scan;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use std::rc::Rc;
 use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -93,7 +93,10 @@ fn main() {
                                     }
                                     if eval_enabled.unwrap_or(true) {
                                         let eval_state = EvalState::new();
-                                        let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
+                                        let eval_result = eval_statements(
+                                            &parsed,
+                                            Rc::new(RefCell::new(eval_state)),
+                                        );
                                         println!("Eval result: {:?}", eval_result);
                                     }
                                 }

@@ -1,9 +1,9 @@
-use crate::eval::Expr::{Binary, Grouping, Literal, Unary, Variable, Assign};
+use crate::eval::Expr::{Assign, Binary, Grouping, Literal, Unary, Variable};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -76,9 +76,9 @@ impl EvalState {
         } else {
             match &self.parent {
                 Some(p) => p.borrow_mut().assign(key, value),
-                None => {
-                    Err(RuntimeError{message: format!("Assignent to unknown variable {}", key)})
-                }
+                None => Err(RuntimeError {
+                    message: format!("Assignent to unknown variable {}", key),
+                }),
             }
         }
     }
@@ -86,15 +86,20 @@ impl EvalState {
 
 pub fn eval_statements(
     stmts: &[Stmt],
-    parent_eval_state: Rc<RefCell<EvalState>>
+    parent_eval_state: Rc<RefCell<EvalState>>,
 ) -> Result<(), RuntimeError> {
-    let mut eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(&parent_eval_state))));
+    let mut eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
+        &parent_eval_state,
+    ))));
 
     for stmt in stmts {
         match stmt {
             Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, Rc::clone(&eval_state)) {
                 Ok(value) => {
-                    eval_state.borrow_mut().symbols.insert(id.to_string(), Some(value));
+                    eval_state
+                        .borrow_mut()
+                        .symbols
+                        .insert(id.to_string(), Some(value));
                 }
                 Err(err) => return Err(err),
             },
@@ -112,6 +117,15 @@ pub fn eval_statements(
                 Ok(_) => (),
                 Err(err) => return Err(err),
             },
+            Stmt::If(expr, then_stmt, else_stmt) => {
+                let cond = eval_expression(expr, Rc::clone(&eval_state))?;
+                let cond_bool = bool_value(&cond);
+                if cond_bool {
+                    eval_statements(then_stmt, Rc::clone(&eval_state))?
+                } else {
+                    eval_statements(else_stmt, Rc::clone(&eval_state))?
+                }
+            }
         }
     }
     Ok(())

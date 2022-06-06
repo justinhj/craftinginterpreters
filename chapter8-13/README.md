@@ -176,8 +176,8 @@ comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 
-### For loop (syntactic sugar)
-commit 
+### End of chapter 9 - For loop (desugaring to while)
+commit 9578d37
 
 program -> block* EOF ;
 block -> "{" declaration* "}" ;

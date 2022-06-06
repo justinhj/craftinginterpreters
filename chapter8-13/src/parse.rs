@@ -138,7 +138,10 @@ struct ParseState<'a> {
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
-// statement -> exprStatement | printStatement | ifStatement | whileStatement | block ;
+// statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
+// forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
+//   expression? ";"
+//   expression? ")" statement ;
 // whileStatement -> "while" "(" expression ")" statement ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
@@ -236,6 +239,10 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             let expr = parse_expression(ps)?;
             Stmt::Print(expr)
         }
+        Token::For => {
+            advance(ps);
+            return parse_for(ps);
+        },
         Token::While => {
             advance(ps);
             return parse_while(ps);
@@ -262,6 +269,52 @@ fn parse_while(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     expect(ps, Token::RightParen)?;
     let stmt = parse_block(ps)?;
     Ok(Stmt::While(cond,vec!(stmt)))
+}
+
+fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    expect(ps, Token::LeftParen)?;
+    let initializer = match peek(ps).token_type.clone() {
+        Token::Semicolon => {
+            advance(ps);
+            None
+        },
+        Token::Var => {
+            Some(parse_declaration(ps)?)
+        },
+        _ => Some(parse_statement(ps)?),
+    };
+    let condition = match peek(ps).token_type.clone() {
+        Token::Semicolon => {
+            advance(ps);
+            Expr::Literal(Value::Boolean(true))
+        },
+        _ => parse_expression(ps)?,
+    };
+    expect(ps, Token::Semicolon)?;
+    let increment = match peek(ps).token_type.clone() {
+        Token::RightParen => {
+            advance(ps);
+            None
+        },
+        _ => {
+            let expr = parse_expression(ps)?;
+            expect(ps, Token::RightParen)?;
+            Some(expr)
+        },
+    };
+    let mut while_body_stmts: Vec<Stmt> = vec!(parse_block(ps)?);
+
+    if let Some(inc) = increment {
+        while_body_stmts.push(Stmt::Expression(inc))
+    }
+
+    let body = Stmt::While(condition, while_body_stmts);
+
+    if let Some(init) = initializer {
+        Ok(Stmt::Block(vec!(init,body)))
+    } else {
+        Ok(body)
+    }
 }
 
 fn parse_if(ps: &mut ParseState) -> Result<Stmt, ParseError> {

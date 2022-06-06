@@ -11,9 +11,7 @@ pub enum Value {
 }
 
 #[derive(Debug)]
-pub struct ParseError {
-    message: String,
-}
+pub struct ParseError(String);
 
 #[derive(Debug, Clone)]
 pub enum Operator {
@@ -181,9 +179,9 @@ fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                         return Ok(Stmt::Block(statements));
                     }
                     Token::Eof => {
-                        return Err(ParseError {
-                            message: "Expected }} but reached end of input".to_string(),
-                        })
+                        return Err(ParseError(
+                            "Expected }} but reached end of input".to_string(),
+                        ))
                     }
                     _ => {
                         let stmt = parse_block(ps)?;
@@ -207,24 +205,19 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                         let expr = parse_expression(ps)?;
                         match advance(ps).token_type.clone() {
                             Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident, Some(expr))),
-                            token @ _ => Err(ParseError {
-                                message: format!(
-                                    "Unexpected token when parsing declaration: {}",
-                                    token
-                                ),
-                            }),
+                            token => Err(ParseError(format!(
+                                "Unexpected token when parsing declaration: {}",
+                                token
+                            ))),
                         }
                     }
                     Token::Semicolon | Token::Eof => Ok(Stmt::VarDecl(ident, None)),
-                    token @ _ => Err(ParseError {
-                        message: format!("Unexpected token when parsing declaration: {}", token),
-                    }),
+                    token => Err(ParseError(format!(
+                        "Unexpected token when parsing declaration: {}",
+                        token
+                    ))),
                 },
-                thing @ _ => {
-                    return Err(ParseError {
-                        message: format!("Expected identifier, got {}", thing),
-                    })
-                }
+                thing => return Err(ParseError(format!("Expected identifier, got {}", thing))),
             }
         }
         _ => parse_statement(ps),
@@ -249,9 +242,10 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
 
     match &advance(ps).token_type {
         Token::Semicolon | Token::Eof => Ok(response),
-        token @ _ => Err(ParseError {
-            message: format!("Unexpected token when parsing statement: {}", token),
-        }),
+        token => Err(ParseError(format!(
+            "Unexpected token when parsing statement: {}",
+            token
+        ))),
     }
 }
 
@@ -287,9 +281,10 @@ fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
             let name = match expr {
                 Expr::Variable(name) => name,
                 _ => {
-                    return Err(ParseError {
-                        message: format!("Tried to assign to not a variable: {}", expr),
-                    })
+                    return Err(ParseError(format!(
+                        "Tried to assign to not a variable: {}",
+                        expr
+                    )))
                 }
             };
 
@@ -443,12 +438,10 @@ fn parse_group(ps: &mut ParseState) -> ParseExprResult {
 
     match token.token_type {
         Token::RightParen => Ok(Expr::Grouping(Box::new(expr))),
-        _ => Err(ParseError {
-            message: format!(
-                "Failed finding matching right paren {:?} {}",
-                token, token.line
-            ),
-        }),
+        _ => Err(ParseError(format!(
+            "Failed finding matching right paren {:?} {}",
+            token, token.line
+        ))),
     }
 }
 
@@ -463,9 +456,10 @@ fn parse_primary(ps: &mut ParseState) -> ParseExprResult {
         Token::String(s) => Ok(Expr::Literal(Value::String(s.clone()))),
         Token::Identifier(i) => Ok(Expr::Variable(i.to_string())),
         Token::LeftParen => parse_group(ps),
-        _ => Err(ParseError {
-            message: format!("Failed matching primary {:?} {}", token, token.line),
-        }),
+        _ => Err(ParseError(format!(
+            "Failed matching primary {:?} {}",
+            token, token.line
+        ))),
     }
 }
 
@@ -491,9 +485,10 @@ fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
     if next.token_type == token {
         Ok(())
     } else {
-        Err(ParseError {
-            message: format!("Expected {} found {}", token, next.token_type),
-        })
+        Err(ParseError(format!(
+            "Expected {} found {}",
+            token, next.token_type
+        )))
     }
 }
 

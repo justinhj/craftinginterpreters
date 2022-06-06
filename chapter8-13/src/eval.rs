@@ -6,9 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct RuntimeError {
-    message: String,
-}
+pub struct RuntimeError(String);
 
 // All values have a true or false value. The only things that are false in lox are nil and
 // boolean false, everything else is true
@@ -33,10 +31,10 @@ pub struct EvalState {
 }
 
 impl Default for EvalState {
-     fn default() -> Self {
-         Self::new()
-     }
- }
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl EvalState {
     pub fn new() -> Self {
@@ -54,21 +52,20 @@ impl EvalState {
     /// lookup finds the key in the current block's symbol table and
     /// then looks in the parent table and so on until it runs out of
     /// places to look
-    pub fn lookup(self: &Self, key: &str) -> EvalResult {
+    pub fn lookup(&self, key: &str) -> EvalResult {
         match (self.symbols.get(&key.to_string()), &self.parent) {
             (Some(Some(value)), _) => Ok(value.clone()),
-            (Some(None), _) => Err(RuntimeError {
-                message: format!("Unitialized variable access: {}", key),
-            }),
+            (Some(None), _) => Err(RuntimeError(format!(
+                "Unitialized variable access: {}",
+                key
+            ))),
             (None, Some(parent)) => parent.borrow().lookup(key),
-            (None, None) => Err(RuntimeError {
-                message: format!("Unknown variable access: {}", key),
-            }),
+            (None, None) => Err(RuntimeError(format!("Unknown variable access: {}", key))),
         }
     }
     /// assign gives variable `key` the value `value`, finding the variable
     /// in the same way that lookup does
-    pub fn assign(self: &mut Self, key: &str, value: &Value) -> EvalResult {
+    pub fn assign(&mut self, key: &str, value: &Value) -> EvalResult {
         let key_string = key.to_string();
         let found = self.symbols.get(&key_string).is_some();
 
@@ -78,9 +75,10 @@ impl EvalState {
         } else {
             match &self.parent {
                 Some(p) => p.borrow_mut().assign(key, value),
-                None => Err(RuntimeError {
-                    message: format!("Assignent to unknown variable {}", key),
-                }),
+                None => Err(RuntimeError(format!(
+                    "Assignent to unknown variable {}",
+                    key
+                ))),
             }
         }
     }
@@ -90,7 +88,7 @@ pub fn eval_statements(
     stmts: &[Stmt],
     parent_eval_state: Rc<RefCell<EvalState>>,
 ) -> Result<(), RuntimeError> {
-    let mut eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
+    let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
         &parent_eval_state,
     ))));
 
@@ -149,11 +147,11 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
                         Some(n) =>
                             Ok(Value::Number(-n)),
                         None => 
-                            Err(RuntimeError{message:format!("Cannot negate {:?}", right)}),
+                            Err(RuntimeError(format!("Cannot negate {:?}", right)))
                     }
                 },
-                thing @ _ => {
-                    Err(RuntimeError{message:format!("Unary inappropriate for {:?}", thing)})
+                thing  => {
+                    Err(RuntimeError(format!("Unary inappropriate for {:?}", thing)))
                 },
             }
         },
@@ -190,7 +188,7 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
                 Operator::Or | Operator::And => {
                     eval_expression(right,Rc::clone(&eval_state))
                 },
-                _ => Err(RuntimeError{message:format!("Unexpected logical operator : {}", operator)}),
+                _ => Err(RuntimeError(format!("Unexpected logical operator : {}", operator)))
             }
         },
         Grouping(expr) => eval_expression(expr,Rc::clone(&eval_state)),
@@ -219,9 +217,10 @@ fn eval_equality_operator(left: Value, right: Value, negate: bool) -> EvalResult
         (Value::Boolean(b1), Value::Boolean(b2)) => b1 == b2,
         (Value::String(s1), Value::String(s2)) => s1 == s2,
         _ => {
-            return Err(RuntimeError {
-                message: format!("Don't know how to compare {:?} and {:?}", left, right),
-            })
+            return Err(RuntimeError(format!(
+                "Don't know how to compare {:?} and {:?}",
+                left, right
+            )))
         }
     };
 
@@ -245,9 +244,10 @@ where
 {
     match left_number.zip(right_number).map(f) {
         Some(result) => Ok(Value::Number(result)),
-        None => Err(RuntimeError {
-            message: format!("Arithmetic error: {:?} {:?} {:?}", left, text, right),
-        }),
+        None => Err(RuntimeError(format!(
+            "Arithmetic error: {:?} {:?} {:?}",
+            left, text, right
+        ))),
     }
 }
 
@@ -264,17 +264,16 @@ where
 {
     match left_number.zip(right_number).map(f) {
         Some(result) => Ok(Value::Boolean(result)),
-        None => Err(RuntimeError {
-            message: format!("Comparison error: {:?} {:?} {:?}", left, text, right),
-        }),
+        None => Err(RuntimeError(format!(
+            "Comparison error: {:?} {:?} {:?}",
+            left, text, right
+        ))),
     }
 }
 
 fn eval_string_append(left: Value, right: Value) -> EvalResult {
     match (&left, &right) {
         (Value::String(s1), Value::String(s2)) => Ok(Value::String(format!("{}{}", s1, s2))),
-        _ => Err(RuntimeError {
-            message: format!("Cannot string append {:?}", right),
-        }),
+        _ => Err(RuntimeError(format!("Cannot string append {:?}", right))),
     }
 }

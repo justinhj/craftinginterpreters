@@ -125,7 +125,18 @@ pub fn eval_statements(
                 } else {
                     eval_statements(else_stmt, Rc::clone(&eval_state))?
                 }
-            }
+            },
+            Stmt::While(expr, stmts) => {
+                loop {
+                    let cond = eval_expression(expr, Rc::clone(&eval_state))?;
+                    let cond_bool = bool_value(&cond);
+                    if cond_bool {
+                        eval_statements(stmts, Rc::clone(&eval_state))?
+                    } else {
+                        break
+                    }
+                }
+            },
         }
     }
     Ok(())

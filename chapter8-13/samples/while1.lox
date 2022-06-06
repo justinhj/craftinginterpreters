@@ -1,0 +1,6 @@
+// While loop
+var i = 10;
+while( i > 0 ) {
+    print "hello";
+    i = i - 1;
+}

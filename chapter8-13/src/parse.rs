@@ -54,11 +54,12 @@ impl Display for Operator {
 
 #[derive(Debug)]
 pub enum Stmt {
-    VarDecl(String, Option<Expr>),
-    Expression(Expr),
-    Print(Expr),
     Block(Vec<Stmt>),
+    Expression(Expr),
     If(Expr, Vec<Stmt>, Vec<Stmt>),
+    Print(Expr),
+    VarDecl(String, Option<Expr>),
+    While(Expr,Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -76,7 +77,8 @@ impl Display for Stmt {
             Stmt::Print(expr) => write!(f, "print {};", expr),
             Stmt::If(cond, then_stmt, else_stmt) => {
                 write!(f, "if {} then {:?} else {:?}", cond, then_stmt, else_stmt)
-            }
+            },
+            Stmt::While(expr,stmt) => write!(f, "while {} {:?}", expr, stmt),
         }
     }
 }
@@ -136,7 +138,8 @@ struct ParseState<'a> {
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
-// statement -> exprStatement | printStatement | ifStatement | block ;
+// statement -> exprStatement | printStatement | ifStatement | whileStatement | block ;
+// whileStatement -> "while" "(" expression ")" statement ;
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
 // ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
@@ -233,6 +236,10 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             let expr = parse_expression(ps)?;
             Stmt::Print(expr)
         }
+        Token::While => {
+            advance(ps);
+            return parse_while(ps);
+        },
         Token::If => {
             advance(ps);
             return parse_if(ps);
@@ -247,6 +254,14 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
             token
         ))),
     }
+}
+
+fn parse_while(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    expect(ps, Token::LeftParen)?;
+    let cond = parse_expression(ps)?;
+    expect(ps, Token::RightParen)?;
+    let stmt = parse_block(ps)?;
+    Ok(Stmt::While(cond,vec!(stmt)))
 }
 
 fn parse_if(ps: &mut ParseState) -> Result<Stmt, ParseError> {
@@ -270,7 +285,6 @@ fn parse_expression(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
-    println!("parse_assignment");
     let expr = parse_or(ps)?;
 
     match peek(ps).token_type.clone() {
@@ -295,7 +309,6 @@ fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_equality(ps: &mut ParseState) -> ParseExprResult {
-    println!("parse_equality");
     let mut expr = parse_comparison(ps)?;
 
     loop {
@@ -318,7 +331,6 @@ fn parse_equality(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_or(ps: &mut ParseState) -> ParseExprResult {
-    println!("parse_or");
     let mut expr = parse_and(ps)?;
     loop {
         let peeked_token = peek(ps);
@@ -334,7 +346,6 @@ fn parse_or(ps: &mut ParseState) -> ParseExprResult {
 }
 
 fn parse_and(ps: &mut ParseState) -> ParseExprResult {
-    println!("parse_and");
     let mut expr = parse_equality(ps)?;
     loop {
         let peeked_token = peek(ps);

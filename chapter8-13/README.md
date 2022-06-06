@@ -151,6 +151,27 @@ comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
 
+### While loop
+commit 
 
+Here we add the while statement
 
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
 
+statement -> exprStatement | printStatement | ifStatement | whileStatement | block ;
+whileStatement -> "while" "(" expression ")" statement ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
+expression -> assignment ;
+assignment -> IDENTIFIER "=" assignment | logic_or;
+logic_or -> logic_and ( "or" logic_and )* ;
+logic_and -> equality  ( "and" equality ) ;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;

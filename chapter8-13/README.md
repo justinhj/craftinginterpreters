@@ -150,6 +150,7 @@ equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
 
 ### While loop
 commit 83a9b0e
@@ -175,6 +176,7 @@ equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
 
 ### End of chapter 9 - For loop (desugaring to while)
 commit 9578d37
@@ -201,5 +203,36 @@ equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
 comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term -> factor ( ( "-" | "+" ) ) factor )* ;
 factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | primary ;
+
+### Chapter 10 - Functions
+commit 
+
+program -> block* EOF ;
+block -> "{" declaration* "}" ;
+declaration -> varDecl | statement ;
+varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
+statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
+forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
+  expression? ";"
+  expression? ")" statement ;
+whileStatement -> "while" "(" expression ")" statement ;
+exprStatement -> expression ";" ;
+printStatement -> print expression ";" ;
+ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
+expression -> assignment ;
+assignment -> IDENTIFIER "=" assignment | logic_or;
+logic_or -> logic_and ( "or" logic_and )* ;
+logic_and -> equality  ( "and" equality ) ;
+equality -> comparison ( ( "!=" | "==" ) ) comparison )* ;
+comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+term -> factor ( ( "-" | "+" ) ) factor )* ;
+factor -> unary ( ( "/" | "*" ) ) unary )* ;
+unary -> ( "!" | "-" ) unary | call ;
+call -> primary ( "(" arguments? ")" )* ;
+arguments -> expression ( "," expression )* ;
+
 
 

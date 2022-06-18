@@ -59,7 +59,7 @@ pub enum Stmt {
     If(Expr, Vec<Stmt>, Vec<Stmt>),
     Print(Expr),
     VarDecl(String, Option<Expr>),
-    While(Expr,Vec<Stmt>),
+    While(Expr, Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -77,8 +77,8 @@ impl Display for Stmt {
             Stmt::Print(expr) => write!(f, "print {};", expr),
             Stmt::If(cond, then_stmt, else_stmt) => {
                 write!(f, "if {} then {:?} else {:?}", cond, then_stmt, else_stmt)
-            },
-            Stmt::While(expr,stmt) => write!(f, "while {} {:?}", expr, stmt),
+            }
+            Stmt::While(expr, stmt) => write!(f, "while {} {:?}", expr, stmt),
         }
     }
 }
@@ -87,6 +87,7 @@ impl Display for Stmt {
 pub enum Expr {
     Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
+    Call(Box<Expr>, Vec<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
     Logical(Box<Expr>, Operator, Box<Expr>),
@@ -99,6 +100,7 @@ impl Display for Expr {
         match self {
             Expr::Assign(ident, expr) => write!(f, "(set {} {})", ident, expr),
             Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
+            Expr::Call(callee, params) => write!(f, "({} {:?})", callee, params),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
             Expr::Logical(l, operator, r) => write!(f, "{} {} {}", l, operator, r),
@@ -138,6 +140,7 @@ struct ParseState<'a> {
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
 // statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
 // forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
 //   expression? ";"
@@ -146,6 +149,7 @@ struct ParseState<'a> {
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
 // ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
 // expression -> assignment ;
 // assignment -> IDENTIFIER "=" assignment | logic_or;
 // logic_or -> logic_and ( "or" logic_and )* ;
@@ -154,8 +158,9 @@ struct ParseState<'a> {
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term -> factor ( ( "-" | "+" ) ) factor )* ;
 // factor -> unary ( ( "/" | "*" ) ) unary )* ;
-// unary -> ( "!" | "-" ) unary | primary ;
-// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+// unary -> ( "!" | "-" ) unary | call ;
+// call -> primary ( "(" arguments? ")" )* ;
+// arguments -> expression ( "," expression )* ;
 
 type ParseExprResult = Result<Expr, ParseError>;
 
@@ -242,11 +247,11 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::For => {
             advance(ps);
             return parse_for(ps);
-        },
+        }
         Token::While => {
             advance(ps);
             return parse_while(ps);
-        },
+        }
         Token::If => {
             advance(ps);
             return parse_if(ps);
@@ -268,7 +273,7 @@ fn parse_while(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     let cond = parse_expression(ps)?;
     expect(ps, Token::RightParen)?;
     let stmt = parse_block(ps)?;
-    Ok(Stmt::While(cond,vec!(stmt)))
+    Ok(Stmt::While(cond, vec![stmt]))
 }
 
 fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
@@ -277,17 +282,15 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::Semicolon => {
             advance(ps);
             None
-        },
-        Token::Var => {
-            Some(parse_declaration(ps)?)
-        },
+        }
+        Token::Var => Some(parse_declaration(ps)?),
         _ => Some(parse_statement(ps)?),
     };
     let condition = match peek(ps).token_type.clone() {
         Token::Semicolon => {
             advance(ps);
             Expr::Literal(Value::Boolean(true))
-        },
+        }
         _ => parse_expression(ps)?,
     };
     expect(ps, Token::Semicolon)?;
@@ -295,14 +298,14 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::RightParen => {
             advance(ps);
             None
-        },
+        }
         _ => {
             let expr = parse_expression(ps)?;
             expect(ps, Token::RightParen)?;
             Some(expr)
-        },
+        }
     };
-    let mut while_body_stmts: Vec<Stmt> = vec!(parse_block(ps)?);
+    let mut while_body_stmts: Vec<Stmt> = vec![parse_block(ps)?];
 
     if let Some(inc) = increment {
         while_body_stmts.push(Stmt::Expression(inc))
@@ -311,7 +314,7 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     let body = Stmt::While(condition, while_body_stmts);
 
     if let Some(init) = initializer {
-        Ok(Stmt::Block(vec!(init,body)))
+        Ok(Stmt::Block(vec![init, body]))
     } else {
         Ok(body)
     }
@@ -490,8 +493,42 @@ fn parse_unary(ps: &mut ParseState) -> ParseExprResult {
             let unary = parse_unary(ps)?;
             Ok(Expr::Unary(uo, Box::new(unary)))
         }
-        None => parse_primary(ps),
+        None => parse_call(ps),
     }
+}
+
+fn parse_call(ps: &mut ParseState) -> ParseExprResult {
+    let mut expr = parse_primary(ps)?;
+
+    loop {
+        let peeked = peek(ps);
+        match peeked.token_type.clone() {
+            Token::LeftParen => {
+                advance(ps);
+                expr = finish_call(expr, ps)?
+            }
+            _ => break,
+        };
+    }
+
+    Ok(expr)
+}
+
+fn finish_call(callee: Expr, ps: &mut ParseState) -> ParseExprResult {
+    let mut argument_exprs = vec![];
+
+    if !matches!(peek(ps).token_type.clone(), Token::RightParen) {
+        loop {
+            let expr = parse_expression(ps)?;
+            argument_exprs.push(expr);
+            match expect(ps, Token::Comma) {
+                Ok(_) => continue,
+                Err(_) => break,
+            }
+        }
+    }
+    expect(ps, Token::RightParen)?;
+    Ok(Expr::Call(Box::new(callee), argument_exprs))
 }
 
 // This is for when a primary finds a left paren. Parse an expression and expect
@@ -544,14 +581,19 @@ fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     previous(ps)
 }
 
+/// Expect will succeed and advance if the next token is the expected one, otherwise
+/// it will return an error (and not advance in case you want to recover)
 fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
-    let next = advance(ps);
-    if next.token_type == token {
+    let next = advance(ps).token_type.clone();
+    if next == token {
         Ok(())
     } else {
+        if ps.current > 0 {
+            ps.current -= 1;
+        }
         Err(ParseError(format!(
             "Expected {} found {}",
-            token, next.token_type
+            token, next
         )))
     }
 }

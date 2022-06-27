@@ -519,11 +519,15 @@ fn finish_call(callee: Expr, ps: &mut ParseState) -> ParseExprResult {
 
     if !matches!(peek(ps).token_type.clone(), Token::RightParen) {
         loop {
-            let expr = parse_expression(ps)?;
-            argument_exprs.push(expr);
-            match expect(ps, Token::Comma) {
-                Ok(_) => continue,
-                Err(_) => break,
+            if argument_exprs.len() == 255 {
+                return Err(ParseError(format!("Exceed maximum argument count calling function {:?}", callee)))
+            } else {
+                let expr = parse_expression(ps)?;
+                argument_exprs.push(expr);
+                match expect(ps, Token::Comma) {
+                    Ok(_) => continue,
+                    Err(_) => break,
+                }
             }
         }
     }

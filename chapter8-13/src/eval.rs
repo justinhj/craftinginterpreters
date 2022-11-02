@@ -1,4 +1,4 @@
-use crate::eval::Expr::{Assign, Binary, Grouping, Literal, Logical, Unary, Variable};
+use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary, Variable};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::cell::RefCell;
@@ -146,6 +146,7 @@ pub fn eval_statements(
 pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
+        Call(callee, arguments) => todo!(),
         Unary(operator, right) => {
             let right = eval_expression(right,eval_state)?;
             match operator {

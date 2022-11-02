@@ -87,6 +87,7 @@ impl Display for Stmt {
 pub enum Expr {
     Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
+    Call(Box<Expr>, Vec<Expr>), 
     Grouping(Box<Expr>),
     Literal(Value),
     Logical(Box<Expr>, Operator, Box<Expr>),
@@ -99,6 +100,7 @@ impl Display for Expr {
         match self {
             Expr::Assign(ident, expr) => write!(f, "(set {} {})", ident, expr),
             Expr::Binary(l, operator, r) => write!(f, "({} {} {})", operator, l, r),
+            Expr::Call(callee, params) => write!(f, "(Call {} {:?})", callee, params),
             Expr::Grouping(expr) => write!(f, "(grouping {})", expr),
             Expr::Literal(literal) => write!(f, "{}", literal),
             Expr::Logical(l, operator, r) => write!(f, "{} {} {}", l, operator, r),
@@ -154,8 +156,9 @@ struct ParseState<'a> {
 // comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term -> factor ( ( "-" | "+" ) ) factor )* ;
 // factor -> unary ( ( "/" | "*" ) ) unary )* ;
-// unary -> ( "!" | "-" ) unary | primary ;
-// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+// unary -> ( "!" | "-" ) unary | call ;
+// call -> primary ( "(" arguments? ")" )* ;
+// arguments -> expression ( "," expression )* ;
 
 type ParseExprResult = Result<Expr, ParseError>;
 
@@ -490,8 +493,43 @@ fn parse_unary(ps: &mut ParseState) -> ParseExprResult {
             let unary = parse_unary(ps)?;
             Ok(Expr::Unary(uo, Box::new(unary)))
         }
-        None => parse_primary(ps),
+        None => parse_call(ps),
     }
+}
+
+fn parse_call(ps: &mut ParseState) -> ParseExprResult {
+    let mut callee_expr = parse_primary(ps)?;
+
+    loop {
+        let token = peek(ps);
+        if token.token_type == Token::LeftParen {
+            advance(ps);
+            callee_expr = parse_finish_call(ps, callee_expr)?;
+        } else {
+            break;
+        }
+    }
+
+    return Ok(callee_expr);
+}
+
+fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
+    let mut arguments = vec![];
+    let token = peek(ps);
+
+    if token.token_type != Token::RightParen {
+        loop {
+            arguments.push(parse_expression(ps)?);
+            let token = peek(ps);
+            if token.token_type == Token::Comma {
+                advance(ps);
+            } else {
+                break;
+            }
+        }
+    }
+    expect(ps, Token::RightParen)?;
+    return Ok(Expr::Call(Box::new(callee), arguments))
 }
 
 // This is for when a primary finds a left paren. Parse an expression and expect
@@ -537,6 +575,7 @@ fn is_at_end(ps: &ParseState) -> bool {
     }
 }
 
+// advance moves the parser to the next token and returns the current one
 fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     if !is_at_end(ps) {
         ps.current += 1;
@@ -544,6 +583,9 @@ fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     previous(ps)
 }
 
+// expect consumes the token at current position, and advances. It is an 
+// error if the token at current position does not match the token 
+// parameter
 fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
     let next = advance(ps);
     if next.token_type == token {
@@ -556,12 +598,14 @@ fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
     }
 }
 
-// TODO could remove these unwraps and return results
-
+// TODO could remove these unwraps and return Result
+// previous returns the token prior to the one at the current parsing position
 fn previous<'a>(ps: &'a ParseState) -> &'a TokenInstance {
     ps.source.get(ps.current - 1).unwrap()
 }
 
+// As you'd expect peek returns the token at the current parsing position
+// without advancing
 fn peek<'a>(ps: &'a ParseState) -> &'a TokenInstance {
     ps.source.get(ps.current).unwrap()
 }

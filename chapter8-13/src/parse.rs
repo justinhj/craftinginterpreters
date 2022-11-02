@@ -59,7 +59,7 @@ pub enum Stmt {
     If(Expr, Vec<Stmt>, Vec<Stmt>),
     Print(Expr),
     VarDecl(String, Option<Expr>),
-    While(Expr,Vec<Stmt>),
+    While(Expr, Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -77,8 +77,8 @@ impl Display for Stmt {
             Stmt::Print(expr) => write!(f, "print {};", expr),
             Stmt::If(cond, then_stmt, else_stmt) => {
                 write!(f, "if {} then {:?} else {:?}", cond, then_stmt, else_stmt)
-            },
-            Stmt::While(expr,stmt) => write!(f, "while {} {:?}", expr, stmt),
+            }
+            Stmt::While(expr, stmt) => write!(f, "while {} {:?}", expr, stmt),
         }
     }
 }
@@ -140,6 +140,7 @@ struct ParseState<'a> {
 // block -> "{" declaration* "}" ;
 // declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
+
 // statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
 // forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
 //   expression? ";"
@@ -148,6 +149,7 @@ struct ParseState<'a> {
 // exprStatement -> expression ";" ;
 // printStatement -> print expression ";" ;
 // ifStatement -> "if" "(" expression ")" ( "else" expression )? ;
+
 // expression -> assignment ;
 // assignment -> IDENTIFIER "=" assignment | logic_or;
 // logic_or -> logic_and ( "or" logic_and )* ;
@@ -245,11 +247,11 @@ fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::For => {
             advance(ps);
             return parse_for(ps);
-        },
+        }
         Token::While => {
             advance(ps);
             return parse_while(ps);
-        },
+        }
         Token::If => {
             advance(ps);
             return parse_if(ps);
@@ -271,7 +273,7 @@ fn parse_while(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     let cond = parse_expression(ps)?;
     expect(ps, Token::RightParen)?;
     let stmt = parse_block(ps)?;
-    Ok(Stmt::While(cond,vec!(stmt)))
+    Ok(Stmt::While(cond, vec![stmt]))
 }
 
 fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
@@ -280,17 +282,15 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::Semicolon => {
             advance(ps);
             None
-        },
-        Token::Var => {
-            Some(parse_declaration(ps)?)
-        },
+        }
+        Token::Var => Some(parse_declaration(ps)?),
         _ => Some(parse_statement(ps)?),
     };
     let condition = match peek(ps).token_type.clone() {
         Token::Semicolon => {
             advance(ps);
             Expr::Literal(Value::Boolean(true))
-        },
+        }
         _ => parse_expression(ps)?,
     };
     expect(ps, Token::Semicolon)?;
@@ -298,14 +298,14 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
         Token::RightParen => {
             advance(ps);
             None
-        },
+        }
         _ => {
             let expr = parse_expression(ps)?;
             expect(ps, Token::RightParen)?;
             Some(expr)
-        },
+        }
     };
-    let mut while_body_stmts: Vec<Stmt> = vec!(parse_block(ps)?);
+    let mut while_body_stmts: Vec<Stmt> = vec![parse_block(ps)?];
 
     if let Some(inc) = increment {
         while_body_stmts.push(Stmt::Expression(inc))
@@ -314,7 +314,7 @@ fn parse_for(ps: &mut ParseState) -> Result<Stmt, ParseError> {
     let body = Stmt::While(condition, while_body_stmts);
 
     if let Some(init) = initializer {
-        Ok(Stmt::Block(vec!(init,body)))
+        Ok(Stmt::Block(vec![init, body]))
     } else {
         Ok(body)
     }
@@ -583,17 +583,20 @@ fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     previous(ps)
 }
 
-// expect consumes the token at current position, and advances. It is an 
-// error if the token at current position does not match the token 
-// parameter
+
+/// Expect will succeed and advance if the next token is the expected one, otherwise
+/// it will return an error (and not advance in case you want to recover)
 fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
-    let next = advance(ps);
-    if next.token_type == token {
+    let next = advance(ps).token_type.clone();
+    if next == token {
         Ok(())
     } else {
+        if ps.current > 0 {
+            ps.current -= 1;
+        }
         Err(ParseError(format!(
             "Expected {} found {}",
-            token, next.token_type
+            token, next
         )))
     }
 }

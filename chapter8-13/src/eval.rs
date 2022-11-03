@@ -144,7 +144,7 @@ pub fn eval_statements(
 pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
-        Call(callee, arguments) => todo!(),
+        Call(callee, arguments) => eval_call(callee, arguments, Rc::clone(&eval_state)),
         Unary(operator, right) => {
             let right = eval_expression(right,eval_state)?;
             match operator {
@@ -214,6 +214,20 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
             Ok(value)
         },
     }
+}
+
+fn eval_call(callee: &Expr, arguments: &[Expr], eval_state: Rc<RefCell<EvalState>>) -> Result<Value, RuntimeError> {
+    let callee_evaluated = eval_expression(callee,Rc::clone(&eval_state));
+
+    // we don't know what a function is yet so just evaluate the arguments
+    // and package them up in a Call Value
+    let arguments_evaluated: Result<Vec<Value>,RuntimeError> = arguments.iter().map(
+        |arg_expr| {
+            eval_expression(arg_expr, Rc::clone(&eval_state))
+        }).collect();
+
+    let value = Value::Callable(Box::new(callee_evaluated?), arguments_evaluated?);
+    Ok(value)
 }
 
 // Nil is only equal to nil

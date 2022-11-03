@@ -8,6 +8,7 @@ pub enum Value {
     Boolean(bool),
     Number(f64),
     Nil,
+    Callable(Box<Value>,Vec<Value>),
 }
 
 #[derive(Debug)]
@@ -123,6 +124,7 @@ impl Display for Value {
                 }
             }
             Value::Nil => write!(f, "nil"),
+            Value::Callable(callee,args) => write!(f, "Call some {} with {:?}", callee, args),
         }
     }
 }

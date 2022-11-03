@@ -234,6 +234,17 @@ unary -> ( "!" | "-" ) unary | call ;
 call -> primary ( "(" arguments? ")" )* ;
 arguments -> expression ( "," expression )* ;
 
+Work in progress commit cbb0b98. At this stage I was figuring out how to represent lox callable
+in Rust and settled as creating a new Value of type Callable. When evaluated this contains a 
+value and the values of the arguments.
+
+The next step will be to write some way to convert a value to a function, probably with a function
+lookup table to mirror the variable one, similar to how some lisps have a function and variable
+symbol table.
+
+Next section of the book
+https://craftinginterpreters.com/functions.html#call-type-errors
+
 
 
 

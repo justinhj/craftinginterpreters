@@ -18,11 +18,14 @@ struct Opt {
     #[structopt(short = "p", long)]
     show_parse: bool,
 
-    #[structopt(short, long, help = "When false disable evaluation")]
+    #[structopt(short = "e", long)]
     eval_enabled: Option<bool>,
 
     #[structopt(parse(from_os_str))]
     inputfile: Option<PathBuf>,
+}
+
+fn interpret_file(path: &PathBuf, show_scan: bool, show_parse: bool, eval_enabled: bool) -> () {
 }
 
 fn main() {
@@ -33,8 +36,11 @@ fn main() {
         eval_enabled,
     } = Opt::from_args();
 
+    let should_eval = eval_enabled.unwrap_or(true);
+
     match inputfile {
         Some(f) => {
+            interpret_file(&f, show_scan, show_parse, should_eval);
             let source = fs::read_to_string(f).unwrap();
             match scan(&source) {
                 Ok(tokens) => {
@@ -50,7 +56,7 @@ fn main() {
                                     println!("\t{}", statement)
                                 }
                             }
-                            if eval_enabled.unwrap_or(true) {
+                            if should_eval {
                                 let eval_state = EvalState::new();
                                 match eval_statements(&parsed, Rc::new(RefCell::new(eval_state))) {
                                     Ok(_) => println!("Done"),
@@ -68,7 +74,7 @@ fn main() {
         }
         None => {
             // `()` can be used when no completer is required
-            let mut rl = Editor::<()>::new();
+            let mut rl = Editor::<()>::new().unwrap();
             println!("Lox scanner");
             if rl.load_history("history.txt").is_err() {
                 println!("No previous history.");
@@ -91,7 +97,7 @@ fn main() {
                                             println!("\t{}", statement)
                                         }
                                     }
-                                    if eval_enabled.unwrap_or(true) {
+                                    if should_eval {
                                         let eval_state = EvalState::new();
                                         let eval_result = eval_statements(
                                             &parsed,

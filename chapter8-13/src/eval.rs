@@ -11,6 +11,7 @@ pub struct RuntimeError(String);
 // All values have a true or false value. The only things that are false in lox are nil and
 // boolean false, everything else is true
 // TODO it's really an error if this is not a value so maybe this should return RuntimeError?
+// TODO is callable a valid true value though?
 fn bool_value(value: &Value) -> bool {
     !(matches!(value, Value::Boolean(false)) || matches!(value, Value::Nil))
 }
@@ -109,6 +110,7 @@ pub fn eval_statements(
             Stmt::Block(stmts) => {
                 eval_statements(stmts, Rc::clone(&eval_state))?;
             }
+            // Print can become a builtin native
             Stmt::Print(expr) => match eval_expression(expr, Rc::clone(&eval_state)) {
                 Ok(value) => println!("{}", value),
                 Err(err) => return Err(err),
@@ -234,6 +236,7 @@ fn eval_call(callee: &Expr, arguments: &[Expr], eval_state: Rc<RefCell<EvalState
 // Two numbers can be compared
 // Two bools can be compared
 // Otherwise it is not equal
+// TODO does it make sense to compare function objects?
 fn eval_equality_operator(left: Value, right: Value, negate: bool) -> EvalResult {
     let result = match (&left, &right) {
         (Value::Nil, Value::Nil) => true,

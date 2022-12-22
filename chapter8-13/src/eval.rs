@@ -218,15 +218,19 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
     }
 }
 
-fn eval_call(callee: &Expr, arguments: &[Expr], eval_state: Rc<RefCell<EvalState>>) -> Result<Value, RuntimeError> {
-    let callee_evaluated = eval_expression(callee,Rc::clone(&eval_state));
+fn eval_call(
+    callee: &Expr,
+    arguments: &[Expr],
+    eval_state: Rc<RefCell<EvalState>>,
+) -> Result<Value, RuntimeError> {
+    let callee_evaluated = eval_expression(callee, Rc::clone(&eval_state));
 
     // we don't know what a function is yet so just evaluate the arguments
     // and package them up in a Call Value
-    let arguments_evaluated: Result<Vec<Value>,RuntimeError> = arguments.iter().map(
-        |arg_expr| {
-            eval_expression(arg_expr, Rc::clone(&eval_state))
-        }).collect();
+    let arguments_evaluated: Result<Vec<Value>, RuntimeError> = arguments
+        .iter()
+        .map(|arg_expr| eval_expression(arg_expr, Rc::clone(&eval_state)))
+        .collect();
 
     let value = Value::Callable(Box::new(callee_evaluated?), arguments_evaluated?);
     Ok(value)

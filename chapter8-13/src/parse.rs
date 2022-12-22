@@ -8,7 +8,7 @@ pub enum Value {
     Boolean(bool),
     Number(f64),
     Nil,
-    Callable(Box<Value>,Vec<Value>),
+    Callable(Box<Value>, Vec<Value>),
 }
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ impl Display for Stmt {
 pub enum Expr {
     Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
-    Call(Box<Expr>, Vec<Expr>), 
+    Call(Box<Expr>, Vec<Expr>),
     Grouping(Box<Expr>),
     Literal(Value),
     Logical(Box<Expr>, Operator, Box<Expr>),
@@ -124,7 +124,7 @@ impl Display for Value {
                 }
             }
             Value::Nil => write!(f, "nil"),
-            Value::Callable(callee,args) => write!(f, "Call some {} with {:?}", callee, args),
+            Value::Callable(callee, args) => write!(f, "Call some {} with {:?}", callee, args),
         }
     }
 }
@@ -531,7 +531,7 @@ fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
         }
     }
     expect(ps, Token::RightParen)?;
-    return Ok(Expr::Call(Box::new(callee), arguments))
+    return Ok(Expr::Call(Box::new(callee), arguments));
 }
 
 // This is for when a primary finds a left paren. Parse an expression and expect
@@ -585,7 +585,6 @@ fn advance<'a>(ps: &'a mut ParseState) -> &'a TokenInstance {
     previous(ps)
 }
 
-
 /// Expect will succeed and advance if the next token is the expected one, otherwise
 /// it will return an error (and not advance in case you want to recover)
 fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
@@ -596,10 +595,7 @@ fn expect(ps: &mut ParseState, token: Token) -> Result<(), ParseError> {
         if ps.current > 0 {
             ps.current -= 1;
         }
-        Err(ParseError(format!(
-            "Expected {} found {}",
-            token, next
-        )))
+        Err(ParseError(format!("Expected {} found {}", token, next)))
     }
 }
 

@@ -1,5 +1,6 @@
 use rlox::eval::eval_statements;
 use rlox::eval::EvalState;
+use rlox::eval::RuntimeError;
 use rlox::parse::parse;
 use rlox::parse::ParseError;
 use rlox::scan::scan;
@@ -11,7 +12,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 use structopt::StructOpt;
-use rlox::eval::RuntimeError;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -38,6 +38,7 @@ enum InterpreterError {
     ScanError(ScanError),
     ParseError(ParseError),
     RuntimeError(RuntimeError),
+    ReadlineError(ReadlineError),
 }
 
 // implement From for InterpreterError
@@ -62,6 +63,12 @@ impl From<ParseError> for InterpreterError {
 impl From<RuntimeError> for InterpreterError {
     fn from(rte: RuntimeError) -> Self {
         InterpreterError::RuntimeError(rte)
+    }
+}
+
+impl From<ReadlineError> for InterpreterError {
+    fn from(rte: ReadlineError) -> Self {
+        InterpreterError::ReadlineError(rte)
     }
 }
 
@@ -91,6 +98,37 @@ fn interpret_file(
     Ok(())
 }
 
+fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), InterpreterError> {
+    // `()` can be used when no completer is required
+    let mut rl = Editor::<()>::new().unwrap();
+    println!("Lox scanner");
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
+    }
+    loop {
+        let line = rl.readline(">> ")?;
+        let tokens = scan(&line)?;
+        if show_scan {
+            println!("Tokens:");
+            tokens.iter().for_each(|token| println!("\t{:?}", token));
+        }
+        let parsed = parse(&tokens)?;
+            rl.add_history_entry(line.as_str());
+            if show_parse {
+                println!("\nParsed AST:\n\n");
+                for statement in &parsed {
+                    println!("\t{}", statement)
+                }
+            }
+            if should_eval {
+                let eval_state = EvalState::new();
+                let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
+                println!("Eval result: {:?}", eval_result);
+            }
+        rl.save_history("history.txt").unwrap();
+    }
+}
+
 fn main() {
     let Opt {
         show_scan,
@@ -101,69 +139,10 @@ fn main() {
 
     let should_eval = eval_enabled.unwrap_or(true);
 
-    match inputfile {
-        Some(f) => {
-            match interpret_file(&f, show_scan, show_parse, should_eval) {
-                Ok(()) => println!("Done"),
-                Err(e) => println!("Error: {:?}", e),
-            }
-        }
-        None => {
-            // `()` can be used when no completer is required
-            let mut rl = Editor::<()>::new().unwrap();
-            println!("Lox scanner");
-            if rl.load_history("history.txt").is_err() {
-                println!("No previous history.");
-            }
-            loop {
-                let readline = rl.readline(">> ");
-                match readline {
-                    Ok(line) => match scan(&line) {
-                        Ok(tokens) => {
-                            if show_scan {
-                                println!("Tokens:");
-                                tokens.iter().for_each(|token| println!("\t{:?}", token));
-                            }
-                            match parse(&tokens) {
-                                Ok(parsed) => {
-                                    rl.add_history_entry(line.as_str());
-                                    if show_parse {
-                                        println!("\nParsed AST:\n\n");
-                                        for statement in &parsed {
-                                            println!("\t{}", statement)
-                                        }
-                                    }
-                                    if should_eval {
-                                        let eval_state = EvalState::new();
-                                        let eval_result = eval_statements(
-                                            &parsed,
-                                            Rc::new(RefCell::new(eval_state)),
-                                        );
-                                        println!("Eval result: {:?}", eval_result);
-                                    }
-                                }
-                                Err(err) => {
-                                    println!("{:?}", err)
-                                }
-                            }
-                        }
-                        Err(err) => println!("Error {:?}", err),
-                    },
-                    Err(ReadlineError::Interrupted) => {
-                        println!("CTRL-C");
-                        break;
-                    }
-                    Err(ReadlineError::Eof) => {
-                        println!("CTRL-D");
-                        break;
-                    }
-                    Err(err) => {
-                        println!("Error: {:?}", err);
-                        break;
-                    }
-                }
-            }
-            rl.save_history("history.txt").unwrap();
-        }
-    }
+    let result = match inputfile {
+        Some(f) => interpret_file(&f, show_scan, show_parse, should_eval),
+        None => repl(show_scan, show_parse, should_eval),
+    };
+
+    println!("Result: {:?}", result);
 }

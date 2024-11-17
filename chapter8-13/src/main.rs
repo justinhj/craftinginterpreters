@@ -6,6 +6,7 @@ use rlox::parse::ParseError;
 use rlox::scan::scan;
 use rlox::scan::ScanError;
 use rustyline::error::ReadlineError;
+use rustyline::history::DefaultHistory;
 use rustyline::Editor;
 use std::cell::RefCell;
 use std::fs;
@@ -72,6 +73,7 @@ impl From<ReadlineError> for InterpreterError {
     }
 }
 
+/// Load and interpret the lox file identified by the PathBuf f
 fn interpret_file(
     f: &PathBuf,
     show_scan: bool,
@@ -100,7 +102,7 @@ fn interpret_file(
 
 fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), InterpreterError> {
     // `()` can be used when no completer is required
-    let mut rl = Editor::<()>::new().unwrap();
+    let mut rl = Editor::<(), DefaultHistory>::new().unwrap();
     println!("Lox scanner");
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
@@ -113,7 +115,7 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
             tokens.iter().for_each(|token| println!("\t{:?}", token));
         }
         let parsed = parse(&tokens)?;
-            rl.add_history_entry(line.as_str());
+            let _ = rl.add_history_entry(line.as_str());
             if show_parse {
                 println!("\nParsed AST:\n\n");
                 for statement in &parsed {

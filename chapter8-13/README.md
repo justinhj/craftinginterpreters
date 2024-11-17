@@ -3,6 +3,25 @@ This culminates in the finished lox interpreter. It picks up from chapter 7 wher
 
 At chapter 7 the framework of the interpreter is done and all that remains is the other language features including functions and classes, scope and variables.
 
+## What's next 
+
+What was last worked on was `function calls parsed and first step of collecting params and calling in eval`
+
+## Notes on the code
+### src/main.rs
+Obviously the main program. You can run the executable with no arguments, in which case I open a command line repl with history. If you provide a file path to a Lox file it will be executed.
+
+It includes the code to load and interpret a lox file as well as act as a Lox repl.
+### src/scan.rs
+Scan a string into Lox tokens.
+### src/parse.rs
+Given the tokens created by the scan step it evaluates it according to Lox's grammar.
+### src/eval.rs
+Evaluates statements, after they have been scanned and parsed, using an execution environment.
+### src/lib.rs
+Just exposes the modules for when this crate us used as a library.
+### samples/*
+Example lox scripts you can run with the interpreter.
 ## Grammar changes
 
 Add statements and print

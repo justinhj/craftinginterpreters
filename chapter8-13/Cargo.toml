@@ -1,7 +1,7 @@
 [package]
 name = "rlox"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "rlox"
@@ -11,9 +11,9 @@ path = "src/lib.rs"
 
 [dependencies]
 lazy_static = "1.4.0"
-rustyline = "15.0.0"
-nom = "7.1.1"
-nom_locate = "4.0.0"
+rustyline = "17.0.2"
+nom = "8.0.0"
+nom_locate = "5.0.0"
 structopt = "0.3.26"
 
 [dev-dependencies]

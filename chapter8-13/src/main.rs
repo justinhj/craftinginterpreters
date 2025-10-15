@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::fmt;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -35,41 +36,46 @@ struct Opt {
 
 #[derive(Debug)]
 enum InterpreterError {
-    FileNotFound(&'static str),
-    ScanError(ScanError),
-    ParseError(ParseError),
-    RuntimeError(RuntimeError),
-    ReadlineError(ReadlineError),
-}
-
-// implement From for InterpreterError
-impl From<std::io::Error> for InterpreterError {
-    fn from(_: std::io::Error) -> Self {
-        InterpreterError::FileNotFound("the filename")
-    }
+    FileNotFound(String),
+    ScanError(()),
+    ParseError(()),
+    RuntimeError(()),
+    ReadlineError(()),
 }
 
 impl From<ScanError> for InterpreterError {
-    fn from(se: ScanError) -> Self {
-        InterpreterError::ScanError(se)
+    fn from(_: ScanError) -> Self {
+        InterpreterError::ScanError(())
     }
 }
 
 impl From<ParseError> for InterpreterError {
-    fn from(pe: ParseError) -> Self {
-        InterpreterError::ParseError(pe)
+    fn from(_: ParseError) -> Self {
+        InterpreterError::ParseError(())
     }
 }
 
 impl From<RuntimeError> for InterpreterError {
-    fn from(rte: RuntimeError) -> Self {
-        InterpreterError::RuntimeError(rte)
+    fn from(_: RuntimeError) -> Self {
+        InterpreterError::RuntimeError(())
     }
 }
 
 impl From<ReadlineError> for InterpreterError {
-    fn from(rte: ReadlineError) -> Self {
-        InterpreterError::ReadlineError(rte)
+    fn from(_: ReadlineError) -> Self {
+        InterpreterError::ReadlineError(())
+    }
+}
+
+impl fmt::Display for InterpreterError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InterpreterError::FileNotFound(path) => write!(f, "File not found: {}", path),
+            InterpreterError::ScanError(()) => write!(f, "Scan Error"),
+            InterpreterError::ParseError(()) => write!(f, "Parse Error"),
+            InterpreterError::RuntimeError(()) => write!(f, "Runtime Error"),
+            InterpreterError::ReadlineError(()) => write!(f, "REPL Error"),
+        }
     }
 }
 
@@ -80,7 +86,9 @@ fn interpret_file(
     show_parse: bool,
     eval_enabled: bool,
 ) -> Result<(), InterpreterError> {
-    let source = fs::read_to_string(f)?;
+    let source = fs::read_to_string(f).map_err(|_err| {
+        InterpreterError::FileNotFound(f.clone().to_string_lossy().to_string())
+    })?;
     let tokens = scan(&source)?;
     if show_scan {
         println!("Tokens:");

@@ -3,10 +3,17 @@ use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct RuntimeError(String);
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Runtime error: {}", self.0)
+    }
+}
 
 // All values have a true or false value. The only things that are false in lox are nil and
 // boolean false, everything else is true

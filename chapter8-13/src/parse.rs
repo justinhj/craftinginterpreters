@@ -14,6 +14,12 @@ pub enum Value {
 #[derive(Debug)]
 pub struct ParseError(String);
 
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "Parse error: {}", self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Operator {
     Equal,

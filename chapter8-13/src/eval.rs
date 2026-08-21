@@ -7,7 +7,7 @@ use std::fmt;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct RuntimeError(String);
+pub struct RuntimeError(pub String);
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -30,7 +30,7 @@ fn numeric_value(value: &Value) -> Option<f64> {
     }
 }
 
-type EvalResult = Result<Value, RuntimeError>;
+pub type EvalResult = Result<Value, RuntimeError>;
 
 #[derive(Debug)]
 pub struct EvalState {

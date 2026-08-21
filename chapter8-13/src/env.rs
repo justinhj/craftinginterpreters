@@ -57,18 +57,42 @@ impl Environment {
     }
 
     pub fn lookup(&self, name: &str) -> EvalResult {
-        let mut env_id = Some(self.current);
+        self.lookup_in(name, self.current)
+    }
+    
+    /// looup starting from a specific environment (used by closures)
+    pub fn lookup_in(&self, name: &str, start: EnvId) -> EvalResult {
+        let mut env_id = Some(start);
         while let Some(id) = env_id {
             let env = &self.envs[id];
             if let Some(entry) = env.symbols.get(name) {
                 return match entry {
                     Some(v) => Ok(v.clone()),
-                    None => Err(RuntimeError(format!("Uninitialized variable: {}", name))),
+                    None => Err(RuntimeError(format!(
+                        "Uninitialized variable: {}", name
+                    ))),
                 };
             }
-            env_id = env.parent
+            env_id = env.parent;
         }
         Err(RuntimeError(format!("Unknown variable: {}", name)))
     }
 
+    pub fn assign(&mut self, name: &str, value: Value) -> EvalResult {
+        self.assign_in(name, value, self.current)
+    }
+
+    /// Assign starting from a specific environment (used by closures)
+    pub fn assign_in(&mut self, name: &str, value: Value, start: EnvId) -> EvalResult {
+        let mut env_id = Some(start);
+        while let Some(id) = env_id {
+            let env = &mut self.envs[id];
+            if env.symbols.contains_key(name) {
+                env.symbols.insert(name.to_string(), Some(value.clone()));
+                return Ok(value);
+            }
+            env_id = env.parent;
+        }
+        Err(RuntimeError(format!("Unknown variable: {}", name)))
+    }
 }

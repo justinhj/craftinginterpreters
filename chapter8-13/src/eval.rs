@@ -36,11 +36,9 @@ pub fn eval_statements(
 ) -> Result<(), RuntimeError> {
     for stmt in stmts {
         match stmt {
-            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, environment) {
-                Ok(value) => {
-                    environment.define(id.to_string(), Some(value));
-                }
-                Err(err) => return Err(err),
+            Stmt::VarDecl(id, Some(expr)) => {
+                let value = eval_expression(expr, environment)?; 
+                environment.define(id.to_string(), Some(value));
             },
             Stmt::VarDecl(id, None) => {
                 environment.define(id.to_string(), None);
@@ -51,9 +49,9 @@ pub fn eval_statements(
                 environment.pop_scope(previous_block);
             }
             // Print can become a builtin native
-            Stmt::Print(expr) => match eval_expression(expr, environment) {
-                Ok(value) => println!("{}", value),
-                Err(err) => return Err(err),
+            Stmt::Print(expr) => {
+                let value = eval_expression(expr, environment)?;
+                println!("{}", value);
             },
             Stmt::Expression(expr) => match eval_expression(expr, environment) {
                 Ok(_) => (),

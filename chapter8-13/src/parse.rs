@@ -236,7 +236,7 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                         token
                     ))),
                 },
-                thing => return Err(ParseError(format!("Expected identifier, got {}", thing))),
+                thing => Err(ParseError(format!("Expected identifier, got {}", thing))),
             }
         }
         _ => parse_statement(ps),
@@ -518,7 +518,7 @@ fn parse_call(ps: &mut ParseState) -> ParseExprResult {
         }
     }
 
-    return Ok(callee_expr);
+    Ok(callee_expr)
 }
 
 fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
@@ -537,7 +537,7 @@ fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
         }
     }
     expect(ps, Token::RightParen)?;
-    return Ok(Expr::Call(Box::new(callee), arguments));
+    Ok(Expr::Call(Box::new(callee), arguments))
 }
 
 // This is for when a primary finds a left paren. Parse an expression and expect

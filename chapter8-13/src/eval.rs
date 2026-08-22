@@ -100,7 +100,6 @@ pub fn eval_statements(
     // let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
     //     &parent_eval_state,
     // ))));
-    let prev = environment.push_scope();
 
     for stmt in stmts {
         match stmt {
@@ -119,7 +118,9 @@ pub fn eval_statements(
                 environment.define(id.to_string(), None);
             }
             Stmt::Block(stmts) => {
+                let previous_block = environment.push_scope();
                 eval_statements(stmts, environment)?;
+                environment.pop_scope(previous_block);
             }
             // Print can become a builtin native
             Stmt::Print(expr) => match eval_expression(expr, environment) {
@@ -150,7 +151,6 @@ pub fn eval_statements(
             },
         }
     }
-    environment.pop_scope(prev);
     Ok(())
 }
 

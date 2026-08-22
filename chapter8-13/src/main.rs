@@ -115,6 +115,7 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
+    let mut environment = Environment::new();
     loop {
         let line = rl.readline(">> ")?;
         let tokens = scan(&line)?;
@@ -133,7 +134,6 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
             if should_eval {
                 // let eval_state = EvalState::new();
                 // let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
-                let mut environment = Environment::new();
                 let eval_result = eval_statements(&parsed, &mut environment);
                 println!("Eval result: {:?}", eval_result);
             }

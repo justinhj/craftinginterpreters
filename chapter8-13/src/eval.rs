@@ -2,10 +2,7 @@ use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary,
 use crate::env::Environment;
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
-// use std::cell::RefCell;
-// use std::collections::HashMap;
 use std::fmt;
-// use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct RuntimeError(pub String);
@@ -33,88 +30,19 @@ fn numeric_value(value: &Value) -> Option<f64> {
 
 pub type EvalResult = Result<Value, RuntimeError>;
 
-// #[derive(Debug)]
-// pub struct EvalState {
-//     parent: Option<Rc<RefCell<EvalState>>>,
-//     symbols: HashMap<String, Option<Value>>,
-// }
-
-// impl Default for EvalState {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
-// impl EvalState {
-//     pub fn new() -> Self {
-//         EvalState {
-//             parent: None,
-//             symbols: HashMap::new(),
-//         }
-//     }
-//     pub fn new_from_parent(parent: Rc<RefCell<EvalState>>) -> Self {
-//         EvalState {
-//             parent: Some(parent),
-//             symbols: HashMap::new(),
-//         }
-//     }
-//     /// lookup finds the key in the current block's symbol table and
-//     /// then looks in the parent table and so on until it runs out of
-//     /// places to look
-//     pub fn lookup(&self, key: &str) -> EvalResult {
-//         match (self.symbols.get(&key.to_string()), &self.parent) {
-//             (Some(Some(value)), _) => Ok(value.clone()),
-//             (Some(None), _) => Err(RuntimeError(format!(
-//                 "Unitialized variable access: {}",
-//                 key
-//             ))),
-//             (None, Some(parent)) => parent.borrow().lookup(key),
-//             (None, None) => Err(RuntimeError(format!("Unknown variable access: {}", key))),
-//         }
-//     }
-//     /// assign gives variable `key` the value `value`, finding the variable
-//     /// in the same way that lookup does
-//     pub fn assign(&mut self, key: &str, value: &Value) -> EvalResult {
-//         let key_string = key.to_string();
-//         let found = self.symbols.get(&key_string).is_some();
-//
-//         if found {
-//             self.symbols.insert(key_string, Some(value.clone()));
-//             Ok(value.clone())
-//         } else {
-//             match &self.parent {
-//                 Some(p) => p.borrow_mut().assign(key, value),
-//                 None => Err(RuntimeError(format!(
-//                     "Assignent to unknown variable {}",
-//                     key
-//                 ))),
-//             }
-//         }
-//     }
-// }
-
 pub fn eval_statements(
     stmts: &[Stmt],
     environment: &mut Environment,
 ) -> Result<(), RuntimeError> {
-    // let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
-    //     &parent_eval_state,
-    // ))));
-
     for stmt in stmts {
         match stmt {
             Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, environment) {
                 Ok(value) => {
                     environment.define(id.to_string(), Some(value));
-                    // eval_state
-                    //     .borrow_mut()
-                    //     .symbols
-                    //     .insert(id.to_string(), Some(value));
                 }
                 Err(err) => return Err(err),
             },
             Stmt::VarDecl(id, None) => {
-                // eval_state.borrow_mut().symbols.insert(id.to_string(), None);
                 environment.define(id.to_string(), None);
             }
             Stmt::Block(stmts) => {
@@ -221,14 +149,9 @@ pub fn eval_expression(expr: &Expr, environment: &mut Environment) -> EvalResult
                 Ok(value) => Ok(value),
                 err @ Err(_) => err,
             }
-          // match eval_state.borrow().lookup(id) {
-          //     Ok(value) => Ok(value),
-          //     err @ Err(_) => err,
-          // }
         },
         Assign(id, expr) => {
             let value = eval_expression(expr, environment)?;
-            // eval_state.borrow_mut().assign(id,&value)?;
             environment.assign(id, value)
         },
     }

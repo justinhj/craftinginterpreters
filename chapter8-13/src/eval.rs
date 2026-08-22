@@ -2,10 +2,10 @@ use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary,
 use crate::env::Environment;
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
-use std::cell::RefCell;
-use std::collections::HashMap;
+// use std::cell::RefCell;
+// use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
+// use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct RuntimeError(pub String);
@@ -95,7 +95,7 @@ pub type EvalResult = Result<Value, RuntimeError>;
 
 pub fn eval_statements(
     stmts: &[Stmt],
-    environment: Environment,
+    environment: &mut Environment,
 ) -> Result<(), RuntimeError> {
     // let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
     //     &parent_eval_state,
@@ -106,7 +106,7 @@ pub fn eval_statements(
         match stmt {
             Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, environment) {
                 Ok(value) => {
-                    environment.assign(id, value);
+                    environment.define(id.to_string(), Some(value));
                     // eval_state
                     //     .borrow_mut()
                     //     .symbols
@@ -155,7 +155,7 @@ pub fn eval_statements(
 }
 
 #[rustfmt::skip]
-pub fn eval_expression(expr: &Expr, environment: Environment) -> EvalResult {
+pub fn eval_expression(expr: &Expr, environment: &mut Environment) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
         Call(callee, arguments) => eval_call(callee, arguments, environment),
@@ -229,8 +229,7 @@ pub fn eval_expression(expr: &Expr, environment: Environment) -> EvalResult {
         Assign(id, expr) => {
             let value = eval_expression(expr, environment)?;
             // eval_state.borrow_mut().assign(id,&value)?;
-            environment.assign(id, value);
-            Ok(value)
+            environment.assign(id, value)
         },
     }
 }
@@ -238,7 +237,7 @@ pub fn eval_expression(expr: &Expr, environment: Environment) -> EvalResult {
 fn eval_call(
     callee: &Expr,
     arguments: &[Expr],
-    environment: Environment,
+    environment: &mut Environment,
 ) -> Result<Value, RuntimeError> {
     let callee_evaluated = eval_expression(callee, environment);
 

@@ -1,5 +1,7 @@
 # Arena-Based Environment
 
+> Implemented in branch `env-improve`.
+
 ## Problem
 
 Once closures are introduced (chapter 10), environments can no longer be a simple stack. A closure captures a reference to the environment where it was defined, and that environment must survive after the defining block has exited. The current `Rc<RefCell<EvalState>>` solves this with reference counting and interior mutability, but at the cost of pervasive `Rc::clone`, runtime borrow checking, and mandatory `Value` cloning on every read.

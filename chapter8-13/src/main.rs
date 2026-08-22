@@ -1,5 +1,5 @@
+use rlox::env::Environment;
 use rlox::eval::eval_statements;
-use rlox::eval::EvalState;
 use rlox::eval::RuntimeError;
 use rlox::parse::parse;
 use rlox::parse::ParseError;
@@ -8,10 +8,8 @@ use rlox::scan::ScanError;
 use rustyline::error::ReadlineError;
 use rustyline::history::DefaultHistory;
 use rustyline::Editor;
-use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::fmt;
 use structopt::StructOpt;
 
@@ -102,8 +100,10 @@ fn interpret_file(
         }
     }
     if eval_enabled {
-        let eval_state = EvalState::new();
-        eval_statements(&parsed, Rc::new(RefCell::new(eval_state)))?;
+        // let eval_state = EvalState::new();
+        // eval_statements(&parsed, Rc::new(RefCell::new(eval_state)))?;
+        let mut environment = Environment::new();
+        eval_statements(&parsed, &mut environment)?;
     }
     Ok(())
 }
@@ -131,8 +131,10 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
                 }
             }
             if should_eval {
-                let eval_state = EvalState::new();
-                let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
+                // let eval_state = EvalState::new();
+                // let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
+                let mut environment = Environment::new();
+                let eval_result = eval_statements(&parsed, &mut environment);
                 println!("Eval result: {:?}", eval_result);
             }
         rl.save_history("history.txt").unwrap();

@@ -189,7 +189,7 @@ struct ScanState<'a> {
     current: usize,
 }
 
-fn begin_scan(source: &str) -> ScanState {
+fn begin_scan<'a>(source: &'a str) -> ScanState<'a> {
     ScanState {
         line: 1,
         tokens: vec![],

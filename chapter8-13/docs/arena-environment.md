@@ -216,3 +216,14 @@ For Crafting Interpreters chapters 8-13, option 1 is appropriate.
 5. Replace `eval_state.borrow_mut().assign(...)` with `env.assign(...)`.
 6. For blocks: `let prev = env.push_scope();` at entry, `env.pop_scope(prev);` at exit.
 7. When implementing functions: store `closure_env: env.current` in the `Value::Function` variant at definition time.
+
+  1. Replace EvalState with Environment — EvalState still exists in eval.rs:36-39. Your new Environment in env.rs is ready to replace it.
+  2. Change signatures to &mut Environment — eval_statements currently takes Rc<RefCell<EvalState>> (line 98), eval_expression takes Rc<RefCell<EvalState>> (line 153). Both need to change to &mut Environment.
+  3. Remove Rc::clone calls — there are ~16 of them in eval.rs. They all become just env passed through.
+  4. Replace eval_state.borrow().lookup(...) — currently at line 215. Becomes env.lookup(...).
+  5. Replace eval_state.borrow_mut().assign(...) — currently at line 222. Becomes env.assign(...).
+  6. Blocks: push/pop — currently eval_statements creates a new EvalState::new_from_parent at line 99-101. Replace with let prev = env.push_scope(); at entry and env.pop_scope(prev); before returning.
+  7. Closures — not yet implemented, so this is future work. Value::Callable (in parse.rs:10) would gain a closure_env: EnvId field when you get there.
+
+  One additional thing to watch for: eval_statements currently always creates a child scope (line 99-101). You'll want to decide whether every call to eval_statements pushes a scope, or only Stmt::Block does — right
+  now both the top-level call and blocks create scopes, which means blocks get double-nested. That's already the case in your current code, so it's not new, but worth being aware of as you migrate.

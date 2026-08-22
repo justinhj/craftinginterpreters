@@ -2,7 +2,7 @@ use crate::scan::{num_format, Token, TokenInstance};
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     String(String),
     Boolean(bool),

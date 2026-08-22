@@ -1,13 +1,14 @@
 use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary, Variable};
+use crate::env::Environment;
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
-use std::cell::RefCell;
-use std::collections::HashMap;
+// use std::cell::RefCell;
+// use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
+// use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct RuntimeError(String);
+pub struct RuntimeError(pub String);
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -30,116 +31,120 @@ fn numeric_value(value: &Value) -> Option<f64> {
     }
 }
 
-type EvalResult = Result<Value, RuntimeError>;
+pub type EvalResult = Result<Value, RuntimeError>;
 
-#[derive(Debug)]
-pub struct EvalState {
-    parent: Option<Rc<RefCell<EvalState>>>,
-    symbols: HashMap<String, Option<Value>>,
-}
+// #[derive(Debug)]
+// pub struct EvalState {
+//     parent: Option<Rc<RefCell<EvalState>>>,
+//     symbols: HashMap<String, Option<Value>>,
+// }
 
-impl Default for EvalState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for EvalState {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-impl EvalState {
-    pub fn new() -> Self {
-        EvalState {
-            parent: None,
-            symbols: HashMap::new(),
-        }
-    }
-    pub fn new_from_parent(parent: Rc<RefCell<EvalState>>) -> Self {
-        EvalState {
-            parent: Some(parent),
-            symbols: HashMap::new(),
-        }
-    }
-    /// lookup finds the key in the current block's symbol table and
-    /// then looks in the parent table and so on until it runs out of
-    /// places to look
-    pub fn lookup(&self, key: &str) -> EvalResult {
-        match (self.symbols.get(&key.to_string()), &self.parent) {
-            (Some(Some(value)), _) => Ok(value.clone()),
-            (Some(None), _) => Err(RuntimeError(format!(
-                "Unitialized variable access: {}",
-                key
-            ))),
-            (None, Some(parent)) => parent.borrow().lookup(key),
-            (None, None) => Err(RuntimeError(format!("Unknown variable access: {}", key))),
-        }
-    }
-    /// assign gives variable `key` the value `value`, finding the variable
-    /// in the same way that lookup does
-    pub fn assign(&mut self, key: &str, value: &Value) -> EvalResult {
-        let key_string = key.to_string();
-        let found = self.symbols.get(&key_string).is_some();
-
-        if found {
-            self.symbols.insert(key_string, Some(value.clone()));
-            Ok(value.clone())
-        } else {
-            match &self.parent {
-                Some(p) => p.borrow_mut().assign(key, value),
-                None => Err(RuntimeError(format!(
-                    "Assignent to unknown variable {}",
-                    key
-                ))),
-            }
-        }
-    }
-}
+// impl EvalState {
+//     pub fn new() -> Self {
+//         EvalState {
+//             parent: None,
+//             symbols: HashMap::new(),
+//         }
+//     }
+//     pub fn new_from_parent(parent: Rc<RefCell<EvalState>>) -> Self {
+//         EvalState {
+//             parent: Some(parent),
+//             symbols: HashMap::new(),
+//         }
+//     }
+//     /// lookup finds the key in the current block's symbol table and
+//     /// then looks in the parent table and so on until it runs out of
+//     /// places to look
+//     pub fn lookup(&self, key: &str) -> EvalResult {
+//         match (self.symbols.get(&key.to_string()), &self.parent) {
+//             (Some(Some(value)), _) => Ok(value.clone()),
+//             (Some(None), _) => Err(RuntimeError(format!(
+//                 "Unitialized variable access: {}",
+//                 key
+//             ))),
+//             (None, Some(parent)) => parent.borrow().lookup(key),
+//             (None, None) => Err(RuntimeError(format!("Unknown variable access: {}", key))),
+//         }
+//     }
+//     /// assign gives variable `key` the value `value`, finding the variable
+//     /// in the same way that lookup does
+//     pub fn assign(&mut self, key: &str, value: &Value) -> EvalResult {
+//         let key_string = key.to_string();
+//         let found = self.symbols.get(&key_string).is_some();
+//
+//         if found {
+//             self.symbols.insert(key_string, Some(value.clone()));
+//             Ok(value.clone())
+//         } else {
+//             match &self.parent {
+//                 Some(p) => p.borrow_mut().assign(key, value),
+//                 None => Err(RuntimeError(format!(
+//                     "Assignent to unknown variable {}",
+//                     key
+//                 ))),
+//             }
+//         }
+//     }
+// }
 
 pub fn eval_statements(
     stmts: &[Stmt],
-    parent_eval_state: Rc<RefCell<EvalState>>,
+    environment: &mut Environment,
 ) -> Result<(), RuntimeError> {
-    let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
-        &parent_eval_state,
-    ))));
+    // let eval_state = Rc::new(RefCell::new(EvalState::new_from_parent(Rc::clone(
+    //     &parent_eval_state,
+    // ))));
 
     for stmt in stmts {
         match stmt {
-            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, Rc::clone(&eval_state)) {
+            Stmt::VarDecl(id, Some(expr)) => match eval_expression(expr, environment) {
                 Ok(value) => {
-                    eval_state
-                        .borrow_mut()
-                        .symbols
-                        .insert(id.to_string(), Some(value));
+                    environment.define(id.to_string(), Some(value));
+                    // eval_state
+                    //     .borrow_mut()
+                    //     .symbols
+                    //     .insert(id.to_string(), Some(value));
                 }
                 Err(err) => return Err(err),
             },
             Stmt::VarDecl(id, None) => {
-                eval_state.borrow_mut().symbols.insert(id.to_string(), None);
+                // eval_state.borrow_mut().symbols.insert(id.to_string(), None);
+                environment.define(id.to_string(), None);
             }
             Stmt::Block(stmts) => {
-                eval_statements(stmts, Rc::clone(&eval_state))?;
+                let previous_block = environment.push_scope();
+                eval_statements(stmts, environment)?;
+                environment.pop_scope(previous_block);
             }
             // Print can become a builtin native
-            Stmt::Print(expr) => match eval_expression(expr, Rc::clone(&eval_state)) {
+            Stmt::Print(expr) => match eval_expression(expr, environment) {
                 Ok(value) => println!("{}", value),
                 Err(err) => return Err(err),
             },
-            Stmt::Expression(expr) => match eval_expression(expr, Rc::clone(&eval_state)) {
+            Stmt::Expression(expr) => match eval_expression(expr, environment) {
                 Ok(_) => (),
                 Err(err) => return Err(err),
             },
             Stmt::If(expr, then_stmt, else_stmt) => {
-                let cond = eval_expression(expr, Rc::clone(&eval_state))?;
+                let cond = eval_expression(expr, environment)?;
                 let cond_bool = bool_value(&cond);
                 if cond_bool {
-                    eval_statements(then_stmt, Rc::clone(&eval_state))?
+                    eval_statements(then_stmt, environment)?
                 } else {
-                    eval_statements(else_stmt, Rc::clone(&eval_state))?
+                    eval_statements(else_stmt, environment)?
                 }
             }
             Stmt::While(expr, stmts) => loop {
-                let cond = eval_expression(expr, Rc::clone(&eval_state))?;
+                let cond = eval_expression(expr, environment)?;
                 let cond_bool = bool_value(&cond);
                 if cond_bool {
-                    eval_statements(stmts, Rc::clone(&eval_state))?
+                    eval_statements(stmts, environment)?
                 } else {
                     break;
                 }
@@ -150,12 +155,12 @@ pub fn eval_statements(
 }
 
 #[rustfmt::skip]
-pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalResult {
+pub fn eval_expression(expr: &Expr, environment: &mut Environment) -> EvalResult {
     match expr {
         Literal(value) => Ok(value.clone()),
-        Call(callee, arguments) => eval_call(callee, arguments, Rc::clone(&eval_state)),
+        Call(callee, arguments) => eval_call(callee, arguments, environment),
         Unary(operator, right) => {
-            let right = eval_expression(right,eval_state)?;
+            let right = eval_expression(right, environment)?;
             match operator {
                 Operator::Bang => {
                     let b = bool_value(&right);
@@ -175,8 +180,8 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
             }
         },
         Binary(left, operator, right) => {
-            let left = eval_expression(left,Rc::clone(&eval_state))?;
-            let right = eval_expression(right,eval_state)?;
+            let left = eval_expression(left, environment)?;
+            let right = eval_expression(right, environment)?;
             let left_number = numeric_value(&left);
             let right_number = numeric_value(&right);
 
@@ -200,27 +205,31 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
             }
         },
         Logical(left,operator,right) => {
-            let left = eval_expression(left,Rc::clone(&eval_state))?;
+            let left = eval_expression(left, environment)?;
             match operator {
                 Operator::And if !bool_value(&left) => Ok(left),
                 Operator::Or if bool_value(&left) => Ok(left),
                 Operator::Or | Operator::And => {
-                    eval_expression(right,Rc::clone(&eval_state))
+                    eval_expression(right, environment)
                 },
                 _ => Err(RuntimeError(format!("Unexpected logical operator : {}", operator)))
             }
         },
-        Grouping(expr) => eval_expression(expr,Rc::clone(&eval_state)),
+        Grouping(expr) => eval_expression(expr, environment),
         Variable(id) => {
-          match eval_state.borrow().lookup(id) {
-              Ok(value) => Ok(value),
-              err @ Err(_) => err,
-          }
+            match environment.lookup(id) {
+                Ok(value) => Ok(value),
+                err @ Err(_) => err,
+            }
+          // match eval_state.borrow().lookup(id) {
+          //     Ok(value) => Ok(value),
+          //     err @ Err(_) => err,
+          // }
         },
         Assign(id, expr) => {
-            let value = eval_expression(expr, Rc::clone(&eval_state))?;
-            eval_state.borrow_mut().assign(id,&value)?;
-            Ok(value)
+            let value = eval_expression(expr, environment)?;
+            // eval_state.borrow_mut().assign(id,&value)?;
+            environment.assign(id, value)
         },
     }
 }
@@ -228,15 +237,15 @@ pub fn eval_expression(expr: &Expr, eval_state: Rc<RefCell<EvalState>>) -> EvalR
 fn eval_call(
     callee: &Expr,
     arguments: &[Expr],
-    eval_state: Rc<RefCell<EvalState>>,
+    environment: &mut Environment,
 ) -> Result<Value, RuntimeError> {
-    let callee_evaluated = eval_expression(callee, Rc::clone(&eval_state));
+    let callee_evaluated = eval_expression(callee, environment);
 
     // we don't know what a function is yet so just evaluate the arguments
     // and package them up in a Call Value
     let arguments_evaluated: Result<Vec<Value>, RuntimeError> = arguments
         .iter()
-        .map(|arg_expr| eval_expression(arg_expr, Rc::clone(&eval_state)))
+        .map(|arg_expr| eval_expression(arg_expr, environment))
         .collect();
 
     let value = Value::Callable(Box::new(callee_evaluated?), arguments_evaluated?);

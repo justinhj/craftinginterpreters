@@ -324,3 +324,204 @@ fn eval_string_append(left: Value, right: Value) -> EvalResult {
         _ => Err(RuntimeError(format!("Cannot string append {:?}", right))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::parse;
+    use crate::scan::scan;
+
+    fn run(source: &str) -> (Result<(), RuntimeError>, Environment) {
+        let tokens = scan(source).unwrap();
+        let stmts = parse(&tokens).unwrap();
+        let mut env = Environment::new();
+        let result = eval_statements(&stmts, &mut env);
+        (result, env)
+    }
+
+    fn run_expr(source: &str) -> Value {
+        let tokens = scan(source).unwrap();
+        let stmts = parse(&tokens).unwrap();
+        let mut env = Environment::new();
+        match &stmts[0] {
+            crate::parse::Stmt::Expression(expr) => {
+                eval_expression(expr, &mut env).unwrap()
+            }
+            _ => panic!("Expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn eval_number_literal() {
+        let value = run_expr("42;");
+        assert_eq!(value, Value::Number(42.0));
+    }
+
+    #[test]
+    fn eval_string_literal() {
+        let value = run_expr("\"hello\";");
+        assert_eq!(value, Value::String("hello".to_string()));
+    }
+
+    #[test]
+    fn eval_boolean_literals() {
+        assert_eq!(run_expr("true;"), Value::Boolean(true));
+        assert_eq!(run_expr("false;"), Value::Boolean(false));
+    }
+
+    #[test]
+    fn eval_nil_literal() {
+        assert_eq!(run_expr("nil;"), Value::Nil);
+    }
+
+    #[test]
+    fn eval_arithmetic() {
+        assert_eq!(run_expr("1 + 2;"), Value::Number(3.0));
+        assert_eq!(run_expr("10 - 3;"), Value::Number(7.0));
+        assert_eq!(run_expr("3 * 4;"), Value::Number(12.0));
+        assert_eq!(run_expr("10 / 2;"), Value::Number(5.0));
+    }
+
+    #[test]
+    fn eval_operator_precedence() {
+        assert_eq!(run_expr("2 + 3 * 4;"), Value::Number(14.0));
+        assert_eq!(run_expr("(2 + 3) * 4;"), Value::Number(20.0));
+    }
+
+    #[test]
+    fn eval_unary_negation() {
+        assert_eq!(run_expr("-5;"), Value::Number(-5.0));
+        assert_eq!(run_expr("--5;"), Value::Number(5.0));
+    }
+
+    #[test]
+    fn eval_unary_bang() {
+        assert_eq!(run_expr("!true;"), Value::Boolean(false));
+        assert_eq!(run_expr("!false;"), Value::Boolean(true));
+        assert_eq!(run_expr("!nil;"), Value::Boolean(true));
+        assert_eq!(run_expr("!1;"), Value::Boolean(false));
+    }
+
+    #[test]
+    fn eval_comparison() {
+        assert_eq!(run_expr("1 < 2;"), Value::Boolean(true));
+        assert_eq!(run_expr("2 < 1;"), Value::Boolean(false));
+        assert_eq!(run_expr("1 <= 1;"), Value::Boolean(true));
+        assert_eq!(run_expr("2 > 1;"), Value::Boolean(true));
+        assert_eq!(run_expr("1 >= 1;"), Value::Boolean(true));
+    }
+
+    #[test]
+    fn eval_equality() {
+        assert_eq!(run_expr("1 == 1;"), Value::Boolean(true));
+        assert_eq!(run_expr("1 != 2;"), Value::Boolean(true));
+        assert_eq!(run_expr("true == true;"), Value::Boolean(true));
+        assert_eq!(run_expr("nil == nil;"), Value::Boolean(true));
+        assert_eq!(run_expr("\"a\" == \"a\";"), Value::Boolean(true));
+        assert_eq!(run_expr("\"a\" != \"b\";"), Value::Boolean(true));
+    }
+
+    #[test]
+    fn eval_string_concatenation() {
+        assert_eq!(
+            run_expr("\"hello\" + \" world\";"),
+            Value::String("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn eval_var_declaration_and_lookup() {
+        let (result, env) = run("var x = 10;");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(10.0));
+    }
+
+    #[test]
+    fn eval_var_assignment() {
+        let (result, env) = run("var x = 1; x = 42;");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(42.0));
+    }
+
+    #[test]
+    fn eval_block_scoping() {
+        let (result, env) = run("var x = 1; { var x = 2; } ");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn eval_block_sees_outer_variable() {
+        let (result, env) = run("var x = 1; { x = 99; }");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(99.0));
+    }
+
+    #[test]
+    fn eval_while_loop() {
+        let (result, env) = run("var x = 0; while (x < 5) { x = x + 1; }");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(5.0));
+    }
+
+    #[test]
+    fn eval_if_true_branch() {
+        let (result, env) = run("var x = 0; if (true) { x = 1; } else { x = 2; }");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn eval_if_false_branch() {
+        let (result, env) = run("var x = 0; if (false) { x = 1; } else { x = 2; }");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(2.0));
+    }
+
+    #[test]
+    fn eval_logical_and() {
+        assert_eq!(run_expr("true and true;"), Value::Boolean(true));
+        assert_eq!(run_expr("true and false;"), Value::Boolean(false));
+        assert_eq!(run_expr("false and true;"), Value::Boolean(false));
+    }
+
+    #[test]
+    fn eval_logical_or() {
+        assert_eq!(run_expr("false or true;"), Value::Boolean(true));
+        assert_eq!(run_expr("false or false;"), Value::Boolean(false));
+        assert_eq!(run_expr("true or false;"), Value::Boolean(true));
+    }
+
+    #[test]
+    fn eval_logical_short_circuit() {
+        let (result, env) = run("var x = 1; false and (x = 2);");
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("x").unwrap(), Value::Number(1.0));
+    }
+
+    #[test]
+    fn eval_uninitialized_variable_errors() {
+        let (result, _) = run("var x; x = x + 1;");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn eval_undefined_variable_errors() {
+        let (result, _) = run("y = 1;");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn eval_division() {
+        assert_eq!(run_expr("10 / 3;"), Value::Number(10.0 / 3.0));
+    }
+
+    #[test]
+    fn eval_nested_while() {
+        let (result, env) = run(
+            "var sum = 0; var i = 0; while (i < 3) { var j = 0; while (j < 3) { sum = sum + 1; j = j + 1; } i = i + 1; }"
+        );
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("sum").unwrap(), Value::Number(9.0));
+    }
+}

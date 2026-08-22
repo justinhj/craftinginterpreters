@@ -620,6 +620,12 @@ fn peek<'a>(ps: &'a ParseState) -> &'a TokenInstance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scan::scan;
+
+    fn parse_source(source: &str) -> Vec<Stmt> {
+        let tokens = scan(source).unwrap();
+        parse(&tokens).unwrap()
+    }
 
     #[test]
     fn test_display_expression_kitchen_sink() {
@@ -630,5 +636,145 @@ mod tests {
         );
 
         assert_eq!("(+ 100.0 200.0)", format!("{}", expr));
+    }
+
+    #[test]
+    fn parse_var_decl_with_initializer() {
+        let stmts = parse_source("var x = 42;");
+        assert_eq!(stmts.len(), 1);
+        assert!(matches!(&stmts[0], Stmt::VarDecl(name, Some(_)) if name == "x"));
+    }
+
+    #[test]
+    fn parse_var_decl_without_initializer() {
+        let stmts = parse_source("var x;");
+        assert_eq!(stmts.len(), 1);
+        assert!(matches!(&stmts[0], Stmt::VarDecl(name, None) if name == "x"));
+    }
+
+    #[test]
+    fn parse_print_statement() {
+        let stmts = parse_source("print 123;");
+        assert_eq!(stmts.len(), 1);
+        assert!(matches!(&stmts[0], Stmt::Print(_)));
+    }
+
+    #[test]
+    fn parse_block() {
+        let stmts = parse_source("{ var a = 1; print a; }");
+        assert_eq!(stmts.len(), 1);
+        match &stmts[0] {
+            Stmt::Block(inner) => assert_eq!(inner.len(), 2),
+            _ => panic!("Expected Block"),
+        }
+    }
+
+    #[test]
+    fn parse_if_else() {
+        let stmts = parse_source("if (true) { print 1; } else { print 2; }");
+        assert_eq!(stmts.len(), 1);
+        assert!(matches!(&stmts[0], Stmt::If(_, _, _)));
+    }
+
+    #[test]
+    fn parse_while_loop() {
+        let stmts = parse_source("while (true) { print 1; }");
+        assert_eq!(stmts.len(), 1);
+        assert!(matches!(&stmts[0], Stmt::While(_, _)));
+    }
+
+    #[test]
+    fn parse_assignment() {
+        let stmts = parse_source("var x = 1; x = 2;");
+        assert_eq!(stmts.len(), 2);
+        match &stmts[1] {
+            Stmt::Expression(Expr::Assign(name, _)) => assert_eq!(name, "x"),
+            _ => panic!("Expected assignment expression"),
+        }
+    }
+
+    #[test]
+    fn parse_binary_expression() {
+        let stmts = parse_source("print 1 + 2 * 3;");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(expr) = &stmts[0] {
+            assert_eq!(format!("{}", expr), "(+ 1.0 (* 2.0 3.0))");
+        } else {
+            panic!("Expected Print statement");
+        }
+    }
+
+    #[test]
+    fn parse_comparison_operators() {
+        let stmts = parse_source("print 1 < 2;");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(expr) = &stmts[0] {
+            assert_eq!(format!("{}", expr), "(< 1.0 2.0)");
+        } else {
+            panic!("Expected Print statement");
+        }
+    }
+
+    #[test]
+    fn parse_logical_operators() {
+        let stmts = parse_source("print true and false;");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(expr) = &stmts[0] {
+            assert_eq!(format!("{}", expr), "true and false");
+        } else {
+            panic!("Expected Print statement");
+        }
+    }
+
+    #[test]
+    fn parse_unary_negation() {
+        let stmts = parse_source("print -5;");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(expr) = &stmts[0] {
+            assert_eq!(format!("{}", expr), "(- 5.0)");
+        } else {
+            panic!("Expected Print statement");
+        }
+    }
+
+    #[test]
+    fn parse_grouping() {
+        let stmts = parse_source("print (1 + 2) * 3;");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(expr) = &stmts[0] {
+            assert_eq!(format!("{}", expr), "(* (grouping (+ 1.0 2.0)) 3.0)");
+        } else {
+            panic!("Expected Print statement");
+        }
+    }
+
+    #[test]
+    fn parse_multiple_statements() {
+        let stmts = parse_source("var a = 1; var b = 2; print a + b;");
+        assert_eq!(stmts.len(), 3);
+    }
+
+    #[test]
+    fn parse_string_literal() {
+        let stmts = parse_source("print \"hello\";");
+        assert_eq!(stmts.len(), 1);
+        if let Stmt::Print(Expr::Literal(Value::String(s))) = &stmts[0] {
+            assert_eq!(s, "hello");
+        } else {
+            panic!("Expected Print with string literal");
+        }
+    }
+
+    #[test]
+    fn parse_nested_blocks() {
+        let stmts = parse_source("{ { var x = 1; } }");
+        assert_eq!(stmts.len(), 1);
+        match &stmts[0] {
+            Stmt::Block(outer) => {
+                assert_eq!(outer.len(), 1);
+                assert!(matches!(&outer[0], Stmt::Block(_)));
+            }
+            _ => panic!("Expected nested blocks"),
+        }
     }
 }

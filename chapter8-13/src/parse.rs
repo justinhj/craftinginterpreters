@@ -1,4 +1,4 @@
-use crate::scan::{num_format, Token, TokenInstance};
+use crate::scan::{Token, TokenInstance, num_format};
 use std::fmt::Display;
 use std::fmt::Formatter;
 
@@ -200,7 +200,7 @@ fn parse_block(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                     Token::Eof => {
                         return Err(ParseError(
                             "Expected }} but reached end of input".to_string(),
-                        ))
+                        ));
                     }
                     _ => {
                         let stmt = parse_block(ps)?;
@@ -362,7 +362,7 @@ fn parse_assignment(ps: &mut ParseState) -> ParseExprResult {
                     return Err(ParseError(format!(
                         "Tried to assign to not a variable: {}",
                         expr
-                    )))
+                    )));
                 }
             };
 
@@ -524,9 +524,16 @@ fn parse_call(ps: &mut ParseState) -> ParseExprResult {
 fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
     let mut arguments = vec![];
     let token = peek(ps);
+    let max_args = 3;
 
     if token.token_type != Token::RightParen {
         loop {
+            if arguments.len() >= max_args {
+                return Err(ParseError(format!(
+                    "Cannot have more than {} arguments.",
+                    max_args
+                )));
+            }
             arguments.push(parse_expression(ps)?);
             let token = peek(ps);
             if token.token_type == Token::Comma {

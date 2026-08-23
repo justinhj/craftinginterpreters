@@ -1,5 +1,5 @@
-use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary, Variable};
 use crate::env::Environment;
+use crate::eval::Expr::{Assign, Binary, Call, Grouping, Literal, Logical, Unary, Variable};
 use crate::parse::Operator;
 use crate::parse::{Expr, Stmt, Value};
 use std::fmt;
@@ -30,16 +30,13 @@ fn numeric_value(value: &Value) -> Option<f64> {
 
 pub type EvalResult = Result<Value, RuntimeError>;
 
-pub fn eval_statements(
-    stmts: &[Stmt],
-    environment: &mut Environment,
-) -> Result<(), RuntimeError> {
+pub fn eval_statements(stmts: &[Stmt], environment: &mut Environment) -> Result<(), RuntimeError> {
     for stmt in stmts {
         match stmt {
             Stmt::VarDecl(id, Some(expr)) => {
-                let value = eval_expression(expr, environment)?; 
+                let value = eval_expression(expr, environment)?;
                 environment.define(id.to_string(), Some(value));
-            },
+            }
             Stmt::VarDecl(id, None) => {
                 environment.define(id.to_string(), None);
             }
@@ -52,7 +49,7 @@ pub fn eval_statements(
             Stmt::Print(expr) => {
                 let value = eval_expression(expr, environment)?;
                 println!("{}", value);
-            },
+            }
             Stmt::Expression(expr) => match eval_expression(expr, environment) {
                 Ok(_) => (),
                 Err(err) => return Err(err),
@@ -188,7 +185,7 @@ fn eval_equality_operator(left: Value, right: Value, negate: bool) -> EvalResult
             return Err(RuntimeError(format!(
                 "Don't know how to compare {:?} and {:?}",
                 left, right
-            )))
+            )));
         }
     };
 
@@ -265,9 +262,7 @@ mod tests {
         let stmts = parse(&tokens).unwrap();
         let mut env = Environment::new();
         match &stmts[0] {
-            crate::parse::Stmt::Expression(expr) => {
-                eval_expression(expr, &mut env).unwrap()
-            }
+            crate::parse::Stmt::Expression(expr) => eval_expression(expr, &mut env).unwrap(),
             _ => panic!("Expected expression statement"),
         }
     }
@@ -440,7 +435,7 @@ mod tests {
     #[test]
     fn eval_nested_while() {
         let (result, env) = run(
-            "var sum = 0; var i = 0; while (i < 3) { var j = 0; while (j < 3) { sum = sum + 1; j = j + 1; } i = i + 1; }"
+            "var sum = 0; var i = 0; while (i < 3) { var j = 0; while (j < 3) { sum = sum + 1; j = j + 1; } i = i + 1; }",
         );
         assert!(result.is_ok());
         assert_eq!(env.lookup("sum").unwrap(), Value::Number(9.0));

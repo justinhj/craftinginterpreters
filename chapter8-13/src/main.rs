@@ -1,16 +1,16 @@
 use rlox::env::Environment;
-use rlox::eval::eval_statements;
 use rlox::eval::RuntimeError;
-use rlox::parse::parse;
+use rlox::eval::eval_statements;
 use rlox::parse::ParseError;
-use rlox::scan::scan;
+use rlox::parse::parse;
 use rlox::scan::ScanError;
+use rlox::scan::scan;
+use rustyline::Editor;
 use rustyline::error::ReadlineError;
 use rustyline::history::DefaultHistory;
-use rustyline::Editor;
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
-use std::fmt;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -84,9 +84,8 @@ fn interpret_file(
     show_parse: bool,
     eval_enabled: bool,
 ) -> Result<(), InterpreterError> {
-    let source = fs::read_to_string(f).map_err(|_err| {
-        InterpreterError::FileNotFound(f.clone().to_string_lossy().to_string())
-    })?;
+    let source = fs::read_to_string(f)
+        .map_err(|_err| InterpreterError::FileNotFound(f.clone().to_string_lossy().to_string()))?;
     let tokens = scan(&source)?;
     if show_scan {
         println!("Tokens:");
@@ -124,19 +123,19 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
             tokens.iter().for_each(|token| println!("\t{:?}", token));
         }
         let parsed = parse(&tokens)?;
-            let _ = rl.add_history_entry(line.as_str());
-            if show_parse {
-                println!("\nParsed AST:\n\n");
-                for statement in &parsed {
-                    println!("\t{}", statement)
-                }
+        let _ = rl.add_history_entry(line.as_str());
+        if show_parse {
+            println!("\nParsed AST:\n\n");
+            for statement in &parsed {
+                println!("\t{}", statement)
             }
-            if should_eval {
-                // let eval_state = EvalState::new();
-                // let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
-                let eval_result = eval_statements(&parsed, &mut environment);
-                println!("Eval result: {:?}", eval_result);
-            }
+        }
+        if should_eval {
+            // let eval_state = EvalState::new();
+            // let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
+            let eval_result = eval_statements(&parsed, &mut environment);
+            println!("Eval result: {:?}", eval_result);
+        }
         rl.save_history("history.txt").unwrap();
     }
 }

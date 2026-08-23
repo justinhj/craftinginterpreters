@@ -524,14 +524,13 @@ fn parse_call(ps: &mut ParseState) -> ParseExprResult {
 fn parse_finish_call(ps: &mut ParseState, callee: Expr) -> ParseExprResult {
     let mut arguments = vec![];
     let token = peek(ps);
-    let max_args = 3;
 
     if token.token_type != Token::RightParen {
         loop {
-            if arguments.len() >= max_args {
+            if arguments.len() >= crate::MAX_FUNCTION_ARGUMENTS {
                 return Err(ParseError(format!(
                     "Cannot have more than {} arguments.",
-                    max_args
+                    crate::MAX_FUNCTION_ARGUMENTS
                 )));
             }
             arguments.push(parse_expression(ps)?);
@@ -784,4 +783,35 @@ mod tests {
             _ => panic!("Expected nested blocks"),
         }
     }
+
+    #[test]
+    fn parse_call_with_exact_max_arguments() {
+        let args = (0..crate::MAX_FUNCTION_ARGUMENTS)
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let source = format!("foo({});", args);
+        let tokens = scan(&source).unwrap();
+        let result = parse(&tokens);
+        assert!(result.is_ok(), "Expected 255 arguments to parse successfully");
+        let stmts = result.unwrap();
+        if let Stmt::Expression(Expr::Call(_, parsed_args)) = &stmts[0] {
+            assert_eq!(parsed_args.len(), crate::MAX_FUNCTION_ARGUMENTS);
+        } else {
+            panic!("Expected Call expression statement");
+        }
+    }
+
+    #[test]
+    fn parse_call_exceeds_max_arguments() {
+        let args = (0..=crate::MAX_FUNCTION_ARGUMENTS)
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let source = format!("foo({});", args);
+        let tokens = scan(&source).unwrap();
+        let result = parse(&tokens);
+        assert!(result.is_err(), "Expected error when exceeding max arguments");
+    }
 }
+

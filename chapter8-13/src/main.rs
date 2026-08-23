@@ -35,33 +35,33 @@ struct Opt {
 #[derive(Debug)]
 enum InterpreterError {
     FileNotFound(String),
-    ScanError(()),
-    ParseError(()),
-    RuntimeError(()),
-    ReadlineError(()),
+    ScanError(ScanError),
+    ParseError(ParseError),
+    RuntimeError(RuntimeError),
+    ReadlineError(ReadlineError),
 }
 
 impl From<ScanError> for InterpreterError {
-    fn from(_: ScanError) -> Self {
-        InterpreterError::ScanError(())
+    fn from(err: ScanError) -> Self {
+        InterpreterError::ScanError(err)
     }
 }
 
 impl From<ParseError> for InterpreterError {
-    fn from(_: ParseError) -> Self {
-        InterpreterError::ParseError(())
+    fn from(err: ParseError) -> Self {
+        InterpreterError::ParseError(err)
     }
 }
 
 impl From<RuntimeError> for InterpreterError {
-    fn from(_: RuntimeError) -> Self {
-        InterpreterError::RuntimeError(())
+    fn from(err: RuntimeError) -> Self {
+        InterpreterError::RuntimeError(err)
     }
 }
 
 impl From<ReadlineError> for InterpreterError {
-    fn from(_: ReadlineError) -> Self {
-        InterpreterError::ReadlineError(())
+    fn from(err: ReadlineError) -> Self {
+        InterpreterError::ReadlineError(err)
     }
 }
 
@@ -69,10 +69,10 @@ impl fmt::Display for InterpreterError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             InterpreterError::FileNotFound(path) => write!(f, "File not found: {}", path),
-            InterpreterError::ScanError(()) => write!(f, "Scan Error"),
-            InterpreterError::ParseError(()) => write!(f, "Parse Error"),
-            InterpreterError::RuntimeError(()) => write!(f, "Runtime Error"),
-            InterpreterError::ReadlineError(()) => write!(f, "REPL Error"),
+            InterpreterError::ScanError(err) => write!(f, "{}", err),
+            InterpreterError::ParseError(err) => write!(f, "{}", err),
+            InterpreterError::RuntimeError(err) => write!(f, "{}", err),
+            InterpreterError::ReadlineError(err) => write!(f, "REPL Error: {}", err),
         }
     }
 }
@@ -99,8 +99,6 @@ fn interpret_file(
         }
     }
     if eval_enabled {
-        // let eval_state = EvalState::new();
-        // eval_statements(&parsed, Rc::new(RefCell::new(eval_state)))?;
         let mut environment = Environment::new();
         eval_statements(&parsed, &mut environment)?;
     }
@@ -108,7 +106,6 @@ fn interpret_file(
 }
 
 fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), InterpreterError> {
-    // `()` can be used when no completer is required
     let mut rl = Editor::<(), DefaultHistory>::new().unwrap();
     println!("Lox scanner");
     if rl.load_history("history.txt").is_err() {
@@ -116,14 +113,32 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
     }
     let mut environment = Environment::new();
     loop {
-        let line = rl.readline(">> ")?;
-        let tokens = scan(&line)?;
+        let line = match rl.readline(">> ") {
+            Ok(line) => line,
+            Err(ReadlineError::Interrupted | ReadlineError::Eof) => break,
+            Err(err) => return Err(InterpreterError::ReadlineError(err)),
+        };
+        let _ = rl.add_history_entry(line.as_str());
+
+        let tokens = match scan(&line) {
+            Ok(tokens) => tokens,
+            Err(err) => {
+                println!("{}", err);
+                continue;
+            }
+        };
         if show_scan {
             println!("Tokens:");
             tokens.iter().for_each(|token| println!("\t{:?}", token));
         }
-        let parsed = parse(&tokens)?;
-        let _ = rl.add_history_entry(line.as_str());
+
+        let parsed = match parse(&tokens) {
+            Ok(parsed) => parsed,
+            Err(err) => {
+                println!("{}", err);
+                continue;
+            }
+        };
         if show_parse {
             println!("\nParsed AST:\n\n");
             for statement in &parsed {
@@ -131,13 +146,14 @@ fn repl(show_scan: bool, show_parse: bool, should_eval: bool) -> Result<(), Inte
             }
         }
         if should_eval {
-            // let eval_state = EvalState::new();
-            // let eval_result = eval_statements(&parsed, Rc::new(RefCell::new(eval_state)));
-            let eval_result = eval_statements(&parsed, &mut environment);
-            println!("Eval result: {:?}", eval_result);
+            match eval_statements(&parsed, &mut environment) {
+                Ok(_) => (),
+                Err(err) => println!("{}", err),
+            }
         }
-        rl.save_history("history.txt").unwrap();
+        let _ = rl.save_history("history.txt");
     }
+    Ok(())
 }
 
 fn main() {
@@ -155,5 +171,9 @@ fn main() {
         None => repl(show_scan, show_parse, should_eval),
     };
 
-    println!("Result: {:?}", result);
+    if let Err(err) = result {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    }
 }
+

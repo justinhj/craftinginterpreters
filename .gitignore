@@ -5,3 +5,4 @@ tests
 Cargo.lock
 target/
 history.txt
+.DS_Store

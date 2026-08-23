@@ -180,6 +180,18 @@ pub enum ScanError {
     EndOfInput,
 }
 
+impl fmt::Display for ScanError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScanError::UnexpectedChar(c) => write!(f, "Scan error: Unexpected character '{}'", c),
+            ScanError::NumberFormatError(s) => write!(f, "Scan error: Invalid number format '{}'", s),
+            ScanError::UnterminatedString(s) => write!(f, "Scan error: Unterminated string {}", s),
+            ScanError::EndOfInput => write!(f, "Scan error: Unexpected end of input"),
+        }
+    }
+}
+
+
 #[derive(Debug)]
 struct ScanState<'a> {
     line: usize,

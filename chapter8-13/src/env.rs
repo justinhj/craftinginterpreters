@@ -32,9 +32,17 @@ impl Default for Environment {
 
 impl Environment {
     pub fn new() -> Self {
+        let mut symbols = HashMap::new();
+        symbols.insert(
+            "clock".to_string(),
+            Some(Value::NativeFunction {
+                    name: "clock".to_string(),
+                    arity: 0,
+            }),
+        );
         let global = Env {
             parent: None,
-            symbols: HashMap::new(),
+            symbols: symbols,
         };
         Environment {
             envs: vec![global],

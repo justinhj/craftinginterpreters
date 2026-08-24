@@ -15,8 +15,6 @@ impl fmt::Display for RuntimeError {
 
 // All values have a true or false value. The only things that are false in lox are nil and
 // boolean false, everything else is true
-// TODO it's really an error if this is not a value so maybe this should return RuntimeError?
-// TODO is callable a valid true value though?
 fn bool_value(value: &Value) -> bool {
     !(matches!(value, Value::Boolean(false)) || matches!(value, Value::Nil))
 }
@@ -200,8 +198,11 @@ fn eval_call(
             Ok(Value::Nil)
         }
         Value::NativeFunction { name, .. } if name == "clock" => {
-            // TODO
-            Ok(Value::Number(0.0))
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
+            Ok(Value::Number(now))
         }
         _ => unreachable!(),
     }

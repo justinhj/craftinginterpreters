@@ -183,10 +183,10 @@ fn eval_call(
 
     match function {
         Value::Function {
-            name,
+            name: _,
             params,
             body,
-            closure_env,
+            closure_env: _,
         } => {
             let prev_env = environment.push_scope();
             for (param, val) in params.iter().zip(evaluated_args) {

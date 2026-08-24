@@ -42,7 +42,7 @@ impl Environment {
         );
         let global = Env {
             parent: None,
-            symbols: symbols,
+            symbols,
         };
         Environment {
             envs: vec![global],

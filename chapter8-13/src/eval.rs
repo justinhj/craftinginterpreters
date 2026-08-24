@@ -157,17 +157,54 @@ fn eval_call(
     arguments: &[Expr],
     environment: &mut Environment,
 ) -> Result<Value, RuntimeError> {
-    let callee_evaluated = eval_expression(callee, environment);
+    let function = eval_expression(callee, environment)?;
 
-    // we don't know what a function is yet so just evaluate the arguments
-    // and package them up in a Call Value
-    let arguments_evaluated: Result<Vec<Value>, RuntimeError> = arguments
-        .iter()
-        .map(|arg_expr| eval_expression(arg_expr, environment))
-        .collect();
+    let (name, expected_arity) = match &function {
+        Value::Function { name, params, .. } => (name.as_str(), params.len()),
+        Value::NativeFunction { name, arity, .. } => (name.as_str(), *arity),
+        _ => {
+            return Err(RuntimeError(
+                "Can only call functions and classes.".to_string(),
+            ));
+        }
+    };
 
-    let value = Value::Callable(Box::new(callee_evaluated?), arguments_evaluated?);
-    Ok(value)
+    if arguments.len() != expected_arity {
+        return Err(RuntimeError(format!(
+            "Function `{}` expected {} arguments but got {}.",
+            name,
+            expected_arity,
+            arguments.len()
+        )));
+    }
+
+    let mut evaluated_args = vec![];
+    for arg in arguments {
+        evaluated_args.push(eval_expression(arg, environment)?);
+    }
+
+    match function {
+        Value::Function {
+            name,
+            params,
+            body,
+            closure_env,
+        } => {
+            let prev_env = environment.push_scope();
+            for (param, val) in params.iter().zip(evaluated_args) {
+                environment.define(param.clone(), Some(val));
+            }
+            let result = eval_statements(&body, environment);
+            environment.pop_scope(prev_env);
+            result?; // later chapter
+            Ok(Value::Nil)
+        }
+        Value::NativeFunction { name, .. } if name == "clock" => {
+            // TODO
+            Ok(Value::Number(0.0))
+        }
+        _ => unreachable!(),
+    }
 }
 
 // Nil is only equal to nil

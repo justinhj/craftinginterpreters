@@ -8,7 +8,17 @@ pub enum Value {
     Boolean(bool),
     Number(f64),
     Nil,
-    Callable(Box<Value>, Vec<Value>),
+    // Callable(Box<Value>, Vec<Value>),
+    Function {
+        name: String,
+        params: Vec<String>,
+        body: Vec<Stmt>,
+        closure_env: usize,
+    },
+    NativeFunction {
+        name: String,
+        arity: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -20,7 +30,7 @@ impl Display for ParseError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Equal,
     Minus,
@@ -59,7 +69,7 @@ impl Display for Operator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     Expression(Expr),
@@ -90,7 +100,7 @@ impl Display for Stmt {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Assign(String, Box<Expr>),
     Binary(Box<Expr>, Operator, Box<Expr>),
@@ -130,7 +140,8 @@ impl Display for Value {
                 }
             }
             Value::Nil => write!(f, "nil"),
-            Value::Callable(callee, args) => write!(f, "Call some {} with {:?}", callee, args),
+            Value::Function { name, .. } => write!(f, "<fn {}>", name),
+            Value::NativeFunction { name, .. } => write!(f, "<native fn {}>", name),
         }
     }
 }
@@ -793,7 +804,10 @@ mod tests {
         let source = format!("foo({});", args);
         let tokens = scan(&source).unwrap();
         let result = parse(&tokens);
-        assert!(result.is_ok(), "Expected 255 arguments to parse successfully");
+        assert!(
+            result.is_ok(),
+            "Expected 255 arguments to parse successfully"
+        );
         let stmts = result.unwrap();
         if let Stmt::Expression(Expr::Call(_, parsed_args)) = &stmts[0] {
             assert_eq!(parsed_args.len(), crate::MAX_FUNCTION_ARGUMENTS);
@@ -811,7 +825,9 @@ mod tests {
         let source = format!("foo({});", args);
         let tokens = scan(&source).unwrap();
         let result = parse(&tokens);
-        assert!(result.is_err(), "Expected error when exceeding max arguments");
+        assert!(
+            result.is_err(),
+            "Expected error when exceeding max arguments"
+        );
     }
 }
-

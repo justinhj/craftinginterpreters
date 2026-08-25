@@ -21,7 +21,7 @@ struct Env {
 #[derive(Debug)]
 pub struct Environment {
     envs: Vec<Env>,
-    current: EnvId,
+    pub current: EnvId,
 }
 
 impl Default for Environment {
@@ -36,8 +36,8 @@ impl Environment {
         symbols.insert(
             "clock".to_string(),
             Some(Value::NativeFunction {
-                    name: "clock".to_string(),
-                    arity: 0,
+                name: "clock".to_string(),
+                arity: 0,
             }),
         );
         let global = Env {

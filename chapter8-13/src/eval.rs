@@ -35,6 +35,15 @@ pub fn eval_statements(stmts: &[Stmt], environment: &mut Environment) -> Result<
                 let value = eval_expression(expr, environment)?;
                 environment.define(id.to_string(), Some(value));
             }
+            Stmt::Function { name, params, body } => {
+                let function = Value::Function {
+                    name: name.clone(),
+                    params: params.clone(),
+                    body: body.clone(),
+                    closure_env: environment.current, // captures the defining scope
+                };
+                environment.define(name.clone(), Some(function));
+            }
             Stmt::VarDecl(id, None) => {
                 environment.define(id.to_string(), None);
             }

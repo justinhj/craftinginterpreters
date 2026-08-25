@@ -73,6 +73,11 @@ impl Display for Operator {
 pub enum Stmt {
     Block(Vec<Stmt>),
     Expression(Expr),
+    Function {
+        name: String,
+        params: Vec<String>,
+        body: Vec<Stmt>,
+    },
     If(Expr, Vec<Stmt>, Vec<Stmt>),
     Print(Expr),
     VarDecl(String, Option<Expr>),
@@ -91,6 +96,7 @@ impl Display for Stmt {
             }
             Stmt::VarDecl(ident, expr) => write!(f, "var {} = {:?};", ident, expr),
             Stmt::Expression(expr) => write!(f, "{};", expr),
+            Stmt::Function { name, params, .. } => write!(f, "<fn {}({:?})>", name, params),
             Stmt::Print(expr) => write!(f, "print {};", expr),
             Stmt::If(cond, then_stmt, else_stmt) => {
                 write!(f, "if {} then {:?} else {:?}", cond, then_stmt, else_stmt)
@@ -157,9 +163,10 @@ struct ParseState<'a> {
 //
 // program -> block* EOF ;
 // block -> "{" declaration* "}" ;
-// declaration -> varDecl | statement ;
 // varDelc -> "var" IDENTIFIER ( "=" expression )? ";" ;
-
+// declaration  → funDecl | varDecl | statement ;
+// funDecl      → "fun" function ;
+// function     → IDENTIFIER "(" parameters? ")" block ;
 // statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
 // forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
 //   expression? ";"
@@ -250,8 +257,59 @@ fn parse_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
                 thing => Err(ParseError(format!("Expected identifier, got {}", thing))),
             }
         }
+        Token::Fun => {
+            advance(ps);
+            parse_function_declaration(ps)
+        }
         _ => parse_statement(ps),
     }
+}
+
+fn parse_function_declaration(ps: &mut ParseState) -> Result<Stmt, ParseError> {
+    let name = match &advance(ps).token_type {
+        Token::Identifier(ident) => ident.clone(),
+        thing => {
+            return Err(ParseError(format!(
+                "Expected function name identifier, got {}",
+                thing
+            )));
+        }
+    };
+
+    expect(ps, Token::LeftParen)?;
+    let mut params = vec![];
+    if peek(ps).token_type != Token::RightParen {
+        loop {
+            if params.len() >= crate::MAX_FUNCTION_ARGUMENTS {
+                return Err(ParseError(format!(
+                    "Cannot have more than {} parameters.",
+                    crate::MAX_FUNCTION_ARGUMENTS
+                )));
+            }
+            match &advance(ps).token_type {
+                Token::Identifier(param) => params.push(param.clone()),
+                token => {
+                    return Err(ParseError(format!(
+                        "Expected parameter name, got {}",
+                        token
+                    )));
+                }
+            }
+            if peek(ps).token_type == Token::Comma {
+                advance(ps);
+            } else {
+                break;
+            }
+        }
+    }
+
+    expect(ps, Token::RightParen)?;
+    let body = match parse_block(ps)? {
+        Stmt::Block(stmts) => stmts,
+        _ => return Err(ParseError("Expected function body block.".to_string())),
+    };
+
+    Ok(Stmt::Function { name, params, body })
 }
 
 fn parse_statement(ps: &mut ParseState) -> Result<Stmt, ParseError> {

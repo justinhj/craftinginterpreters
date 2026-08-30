@@ -4,9 +4,9 @@ use crate::eval::EvalResult;
 use crate::eval::RuntimeError;
 use crate::parse::Value;
 
-type EnvId = usize;
+pub type EnvId = usize;
 
-// Represents part of an Environnment, which is a tree of Env
+// Represents part of an Environment, which is a tree of Env
 // Each env contains an optional parent and a mutable hashmap of symbol/value pairs
 // Note it is an internal structure not part of the public API
 #[derive(Debug)]
@@ -21,7 +21,7 @@ struct Env {
 #[derive(Debug)]
 pub struct Environment {
     envs: Vec<Env>,
-    pub current: EnvId,
+    current: EnvId,
 }
 
 impl Default for Environment {
@@ -50,7 +50,13 @@ impl Environment {
         }
     }
 
-    pub fn push_scope(&mut self) -> EnvId {
+    /// Captures the current active environment ID for closures
+    pub fn capture(&self) -> EnvId {
+        self.current
+    }
+
+    /// Enters a new block scope whose parent is the currently active scope
+    pub fn enter_scope(&mut self) -> EnvId {
         let new_id = self.envs.len();
         self.envs.push(Env {
             parent: Some(self.current),
@@ -61,7 +67,20 @@ impl Environment {
         old
     }
 
-    pub fn pop_scope(&mut self, previous: EnvId) {
+    /// Enters a new function call scope whose parent is explicitly the closure's captured environment
+    pub fn enter_closure(&mut self, closure_parent: EnvId) -> EnvId {
+        let new_id = self.envs.len();
+        self.envs.push(Env {
+            parent: Some(closure_parent),
+            symbols: HashMap::new(),
+        });
+        let old = self.current;
+        self.current = new_id;
+        old
+    }
+
+    /// Exits the current scope, restoring the previous active environment
+    pub fn exit_scope(&mut self, previous: EnvId) {
         self.current = previous;
     }
 
@@ -73,7 +92,7 @@ impl Environment {
         self.lookup_in(name, self.current)
     }
 
-    /// looup starting from a specific environment (used by closures)
+    /// Lookup starting from a specific environment (used by closures)
     pub fn lookup_in(&self, name: &str, start: EnvId) -> EvalResult {
         let mut env_id = Some(start);
         while let Some(id) = env_id {
@@ -108,6 +127,7 @@ impl Environment {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,10 +156,10 @@ mod tests {
     fn child_scope_shadows_parent() {
         let mut env = Environment::new();
         env.define("x".to_string(), Some(Value::Number(1.0)));
-        let prev = env.push_scope();
+        let prev = env.enter_scope();
         env.define("x".to_string(), Some(Value::Number(2.0)));
         assert_eq!(env.lookup("x").unwrap(), Value::Number(2.0));
-        env.pop_scope(prev);
+        env.exit_scope(prev);
         assert_eq!(env.lookup("x").unwrap(), Value::Number(1.0));
     }
 
@@ -147,7 +167,7 @@ mod tests {
     fn child_scope_sees_parent_variables() {
         let mut env = Environment::new();
         env.define("x".to_string(), Some(Value::Number(10.0)));
-        let _prev = env.push_scope();
+        let _prev = env.enter_scope();
         assert_eq!(env.lookup("x").unwrap(), Value::Number(10.0));
     }
 
@@ -163,7 +183,7 @@ mod tests {
     fn assign_in_parent_scope() {
         let mut env = Environment::new();
         env.define("x".to_string(), Some(Value::Number(1.0)));
-        let _prev = env.push_scope();
+        let _prev = env.enter_scope();
         env.assign("x", Value::Number(5.0)).unwrap();
         assert_eq!(env.lookup("x").unwrap(), Value::Number(5.0));
     }
@@ -178,22 +198,58 @@ mod tests {
     fn nested_scopes() {
         let mut env = Environment::new();
         env.define("a".to_string(), Some(Value::Number(1.0)));
-        let prev1 = env.push_scope();
+        let prev1 = env.enter_scope();
         env.define("b".to_string(), Some(Value::Number(2.0)));
-        let prev2 = env.push_scope();
+        let prev2 = env.enter_scope();
         env.define("c".to_string(), Some(Value::Number(3.0)));
 
         assert_eq!(env.lookup("a").unwrap(), Value::Number(1.0));
         assert_eq!(env.lookup("b").unwrap(), Value::Number(2.0));
         assert_eq!(env.lookup("c").unwrap(), Value::Number(3.0));
 
-        env.pop_scope(prev2);
+        env.exit_scope(prev2);
         assert_eq!(env.lookup("a").unwrap(), Value::Number(1.0));
         assert_eq!(env.lookup("b").unwrap(), Value::Number(2.0));
         assert!(env.lookup("c").is_err());
 
-        env.pop_scope(prev1);
+        env.exit_scope(prev1);
         assert_eq!(env.lookup("a").unwrap(), Value::Number(1.0));
         assert!(env.lookup("b").is_err());
     }
+
+    #[test]
+    fn closure_captures_and_survives_parent_exit() {
+        let mut env = Environment::new();
+        // Outer scope (e.g. makeCounter)
+        let outer_scope = env.enter_scope();
+        env.define("counter".to_string(), Some(Value::Number(10.0)));
+
+        // Capture closure env
+        let captured_env = env.capture();
+
+        // Exit outer scope (makeCounter returns)
+        env.exit_scope(outer_scope);
+        assert!(env.lookup("counter").is_err()); // counter not visible in global
+
+        // Inside another unrelated scope (caller)
+        let caller_scope = env.enter_scope();
+        env.define("counter".to_string(), Some(Value::Number(999.0)));
+
+        // Execute closure: enters scope attached to captured_env, NOT caller_scope
+        let closure_call_scope = env.enter_closure(captured_env);
+        assert_eq!(env.lookup("counter").unwrap(), Value::Number(10.0)); // sees 10, not 999!
+        env.assign("counter", Value::Number(11.0)).unwrap();
+
+        env.exit_scope(closure_call_scope);
+        // Back in caller_scope
+        assert_eq!(env.lookup("counter").unwrap(), Value::Number(999.0));
+
+        // Call closure again to verify mutation persisted in captured environment
+        let closure_call_scope2 = env.enter_closure(captured_env);
+        assert_eq!(env.lookup("counter").unwrap(), Value::Number(11.0));
+        env.exit_scope(closure_call_scope2);
+
+        env.exit_scope(caller_scope);
+    }
 }
+

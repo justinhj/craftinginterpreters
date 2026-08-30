@@ -40,7 +40,7 @@ pub fn eval_statements(stmts: &[Stmt], environment: &mut Environment) -> Result<
                     name: name.clone(),
                     params: params.clone(),
                     body: body.clone(),
-                    closure_env: environment.current, // captures the defining scope
+                    closure_env: environment.capture(),
                 };
                 environment.define(name.clone(), Some(function));
             }
@@ -48,9 +48,9 @@ pub fn eval_statements(stmts: &[Stmt], environment: &mut Environment) -> Result<
                 environment.define(id.to_string(), None);
             }
             Stmt::Block(stmts) => {
-                let previous_block = environment.push_scope();
+                let previous_block = environment.enter_scope();
                 eval_statements(stmts, environment)?;
-                environment.pop_scope(previous_block);
+                environment.exit_scope(previous_block);
             }
             // Print can become a builtin native
             Stmt::Print(expr) => {
@@ -192,18 +192,18 @@ fn eval_call(
 
     match function {
         Value::Function {
-            name: _,
             params,
             body,
-            closure_env: _,
+            closure_env,
+            ..
         } => {
-            let prev_env = environment.push_scope();
+            let prev_env = environment.enter_closure(closure_env);
             for (param, val) in params.iter().zip(evaluated_args) {
                 environment.define(param.clone(), Some(val));
             }
             let result = eval_statements(&body, environment);
-            environment.pop_scope(prev_env);
-            result?; // later chapter
+            environment.exit_scope(prev_env);
+            result?;
             Ok(Value::Nil)
         }
         Value::NativeFunction { name, .. } if name == "clock" => {
@@ -487,4 +487,51 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(env.lookup("sum").unwrap(), Value::Number(9.0));
     }
+
+    #[test]
+    fn eval_native_clock() {
+        let value = run_expr("clock();");
+        match value {
+            Value::Number(n) => assert!(n > 0.0),
+            _ => panic!("Expected Number from clock()"),
+        }
+    }
+
+    #[test]
+    fn eval_function_declaration_and_call() {
+        let (result, env) = run(
+            "var result = 0; fun add(a, b) { result = a + b; } add(3, 4);",
+        );
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("result").unwrap(), Value::Number(7.0));
+    }
+
+    #[test]
+    fn eval_closure_lexical_scoping() {
+        let (result, env) = run(
+            "var outer_res = 0;
+             fun makeAdder(x) {
+                 fun add(y) {
+                     outer_res = x + y;
+                 }
+                 add(10);
+             }
+             makeAdder(5);",
+        );
+        assert!(result.is_ok());
+        assert_eq!(env.lookup("outer_res").unwrap(), Value::Number(15.0));
+    }
+
+    #[test]
+    fn eval_calling_non_callable_errors() {
+        let (result, _) = run("\"not a function\"(1, 2);");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn eval_arity_mismatch_errors() {
+        let (result, _) = run("fun foo(a, b) { } foo(1);");
+        assert!(result.is_err());
+    }
 }
+

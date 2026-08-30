@@ -45,7 +45,11 @@ impl Environment {
         }
     }
 
-    pub fn push_scope(&mut self) -> EnvId {
+    pub fn capture(&self) -> EnvId {
+        self.current
+    }
+
+    pub fn enter_scope(&mut self) -> EnvId {
         let new_id = self.envs.len();
         self.envs.push(Env {
             parent: Some(self.current),
@@ -56,7 +60,18 @@ impl Environment {
         old // return previous scope for restoring later
     }
 
-    pub fn pop_scope(&mut self, previous: EnvId) {
+    pub fn enter_closure(&mut self, closure_parent: EnvId) -> EnvId {
+        let new_id = self.envs.len();
+        self.envs.push(Env {
+            parent: Some(closure_parent),
+            symbols: HashMap::new(),
+        });
+        let old = self.current;
+        self.current = new_id;
+        old
+    }
+
+    pub fn exit_scope(&mut self, previous: EnvId) {
         self.current = previous;
     }
 

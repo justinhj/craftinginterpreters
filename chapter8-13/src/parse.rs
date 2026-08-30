@@ -168,6 +168,7 @@ struct ParseState<'a> {
 // funDecl      → "fun" function ;
 // function     → IDENTIFIER "(" parameters? ")" block ;
 // statement -> exprStatement | printStatement | ifStatement | whileStatement | forStatement | block ;
+// returnStmt     → "return" expression? ";" ;
 // forStatement -> "for" "(" ( varDecl | exprStmt | ";" )
 //   expression? ";"
 //   expression? ")" statement ;
